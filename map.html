@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EFS Indoor Navigation</title>
+<style>
+body { font-family: Arial, sans-serif; background: #e6f0ff; margin: 0; padding: 0; }
+header { background: #0044cc; color: white; padding: 20px; text-align: center; }
+.main-container { display: flex; gap: 20px; padding: 20px; max-width: 1600px; margin: 0 auto; }
+.left-panel { width: 350px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); height: fit-content; }
+#map { position: relative; width: 1200px; height: 800px; background: url('images/floorplan.jpg') no-repeat center; background-size: contain; border: 3px solid #0044cc; border-radius: 10px; flex: 1; }
+.marker { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #0044cc; color: white; display: flex; justify-content: center; align-items: center; font-size: 8px; cursor: pointer; z-index: 10; }
+.path-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+.curved-path { fill: none; stroke: #ff4444; stroke-width: 4; stroke-linecap: round; stroke-dasharray: 15, 10; animation: pathFlow 2s linear infinite; }
+@keyframes pathFlow { 0% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 25; } }
+.start-marker { background: #00cc44 !important; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; }
+.end-marker { background: #ff4444 !important; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; }
+#controls { margin-bottom: 20px; }
+#controls h3 { color: #0044cc; margin-bottom: 15px; border-bottom: 2px solid #e6f0ff; padding-bottom: 8px; }
+select, button { width: 100%; padding: 10px; font-size: 14px; margin: 8px 0; border-radius: 6px; border: 2px solid #0044cc; box-sizing: border-box; }
+button { background: #0044cc; color: white; cursor: pointer; font-weight: bold; }
+button:hover { background: #002b80; }
+button.clear-btn { background: #dc3545; border-color: #dc3545; }
+button.clear-btn:hover { background: #c82333; }
+</style>
+</head>
+<body>
+
+<header>
+  <h2>EFS-First Floor Indoor Navigation</h2>
+  <p>Select Start and Destination to get the shortest route</p>
+</header>
+
+<div class="main-container">
+  <div class="left-panel">
+    <div id="controls">
+      <h3>Navigation Controls</h3>
+      <label for="startSelect"><strong>Start Location:</strong></label>
+      <select id="startSelect"></select>
+      
+      <label for="destSelect"><strong>Destination:</strong></label>
+      <select id="destSelect"></select>
+      
+      <button onclick="showPath()">Show Route</button>
+      <button class="clear-btn" onclick="clearPath()">Clear Path</button>
+    </div>
+  </div>
+
+  <div id="map">
+    <svg class="path-svg" id="pathSvg"></svg>
+  </div>
+</div>
+
+<script>
+// Room coordinates
+const coordinates = {
+  "Sitting Area":[760,430],"COE Dept":[670,280],"Cabin1":[690,630],"Cabin2":[665,630],
+  "Cabin3":[720,250],"Cabin4":[520,100],"Cabin5":[520,60],"Sanjay Cabin6":[310,175],
+  "Shyam's Cabin7":[310,140],"Ameen's Cabin8":[310,100],"Cabin9":[700,550],
+  "Meeting Room1":[380,710],"Meeting Room2":[460,710],"Meeting Room3":[765,650],
+  "Meeting Room4":[642,300],"Internal Meeting Room1":[485,275],
+  "External Meeting Room2":[425,280],"FM PRO":[652,650],"IWAA":[597,650],
+  "HR1":[250,530],"HR2":[100,530],"HR Department":[250,690],"Common Cabin":[70,670],
+  "Printer":[410,660],"Electricity Room":[690,500],"Women's Restroom":[640,520],
+  "Men's Restroom":[580,370],"Ablution3":[720,440],"Janitor":[680,450],
+  "Regional Procurement Department":[405,200],"Innovation":[450,280],"Fit Out Store":[550,300],
+  "GD2":[265,290],"Electricity Room2":[200,200],"HVAC Training Area":[701,147],
+  "Electrical Training Area1":[660,137],"Electrical Training Area2":[660,80],
+  "Plumbing Training Area1":[620,140],"Plumbing Training Area2":[620,180],
+  "Dressing Area":[517,266],"Fridge-1":[598,230],"Fridge-2":[552,171],
+  "Fridge-3":[530,170],"Fridge-4":[505,170],
+  "Rack-1":[504,215],"Rack-2":[528,215],"Rack-3":[555,215],
+  "Rack-4":[554,250],"Rack-5":[500,235],
+  "W1":[170,125],"W2":[150,320]
+};
+
+// Corridor graph (fixed)
+const navGraph = {
+  n1:{x:380,y:680,connections:['n2','n40']},n2:{x:350,y:680,connections:['n1','n3','n39','n23']},
+  n3:{x:350,y:600,connections:['n2','n4','n36']},n4:{x:335,y:500,connections:['n3','n5']},
+  n5:{x:335,y:420,connections:['n4','n6','n8']},n6:{x:345,y:345,connections:['n5','n7','n17']},
+  n7:{x:260,y:330,connections:['n6','n39','n42']},n8:{x:340,y:423,connections:['n5','n9']},
+  n9:{x:519,y:420,connections:['n8','n10','n37']},n10:{x:510,y:340,connections:['n9','n11']},
+  n11:{x:550,y:340,connections:['n10','n12','n29','n15']},n12:{x:590,y:340,connections:['n11','n13']},
+  n13:{x:590,y:220,connections:['n12','n14']},n14:{x:590,y:180,connections:['n13']},
+  n15:{x:635,y:340,connections:['n11','n16']},n16:{x:680,y:340,connections:['n15','n28','n29']},
+  n17:{x:350,y:250,connections:['n6','n18','n33','n34']},n18:{x:350,y:220,connections:['n17','n19']},
+  n19:{x:351,y:180,connections:['n18','n20']},n20:{x:355,y:150,connections:['n19','n21']},
+  n21:{x:360,y:110,connections:['n20','n43']},n22:{x:505,y:670,connections:['n37','n40','n25']},
+  n23:{x:150,y:680,connections:['n2']},n24:{x:600,y:660,connections:['n25','n41']},
+  n25:{x:550,y:660,connections:['n24','n22']},n26:{x:680,y:175,connections:['n27']},
+  n27:{x:680,y:220,connections:['n26','n28']},n28:{x:685,y:260,connections:['n27','n16','n29']},
+  n29:{x:685,y:340,connections:['n28','n11','n30','n16']},n30:{x:760,y:340,connections:['n29','n31']},
+  n31:{x:775,y:420,connections:['n30']},n32:{x:490,y:250,connections:['n33']},
+  n33:{x:430,y:252,connections:['n32','n17']},n34:{x:380,y:250,connections:['n17']},
+  n35:{x:160,y:600,connections:['n36']},n36:{x:300,y:600,connections:['n35','n3']},
+  n37:{x:505,y:570,connections:['n36','n38','n22','n9']},n38:{x:663,y:570,connections:['n37']},
+  n39:{x:255,y:680,connections:['n2']},n40:{x:470,y:680,connections:['n1','n22']},
+  n41:{x:690,y:660,connections:['n24']},n42:{x:265,y:200,connections:['n7']},
+  n43:{x:470,y:80,connections:['n21']}
+};
+
+// Distance calculation
+function dist(a,b){ return Math.hypot(navGraph[a].x-navGraph[b].x, navGraph[a].y-navGraph[b].y); }
+
+// A* algorithm
+function aStar(start,goal){
+  let open=[start],came={},g={},f={};
+  Object.keys(navGraph).forEach(n=>{g[n]=Infinity;f[n]=Infinity;});
+  g[start]=0;f[start]=dist(start,goal);
+  while(open.length>0){
+    let current=open.reduce((a,b)=>f[a]<f[b]?a:b);
+    if(current===goal){
+      let path=[current];while(current in came){current=came[current];path.unshift(current);}
+      return path;
+    }
+    open=open.filter(n=>n!==current);
+    for(let neighbor of navGraph[current].connections){
+      let tg=g[current]+dist(current,neighbor);
+      if(tg<g[neighbor]){
+        came[neighbor]=current;g[neighbor]=tg;f[neighbor]=tg+dist(neighbor,goal);
+        if(!open.includes(neighbor))open.push(neighbor);
+      }
+    }
+  }
+  return [];
+}
+
+const mapDiv=document.getElementById("map");
+const pathSvg=document.getElementById("pathSvg");
+
+// Room markers
+Object.keys(coordinates).forEach(loc=>{
+  const[x,y]=coordinates[loc];
+  const marker=document.createElement("div");
+  marker.className="marker";
+  marker.style.left=(x-7)+"px";marker.style.top=(y-7)+"px";
+  marker.textContent=loc.substring(0,2).toUpperCase();
+  marker.title=loc;
+  mapDiv.appendChild(marker);
+});
+
+// Dropdowns
+const startSelect=document.getElementById("startSelect");
+const destSelect=document.getElementById("destSelect");
+
+Object.keys(coordinates).forEach(loc=>{
+  let option=document.createElement("option");
+  option.value=loc;option.text=loc;startSelect.appendChild(option.cloneNode(true));
+  destSelect.appendChild(option);
+});
+
+// Nearest node
+function nearestNode([x,y]){
+  let nearest=null,minDist=Infinity;
+  Object.keys(navGraph).forEach(nodeId=>{
+    let d=Math.hypot(navGraph[nodeId].x-x,navGraph[nodeId].y-y);
+    if(d<minDist){minDist=d;nearest=nodeId;}
+  });
+  return nearest;
+}
+
+// Show path
+function showPath(){
+  clearPath();
+  const start=startSelect.value,dest=destSelect.value;
+  if(!start||!dest||start===dest){alert("Select different start and destination.");return;}
+  const startNode=nearestNode(coordinates[start]),destNode=nearestNode(coordinates[dest]);
+  const corridorPath=aStar(startNode,destNode);
+  if(corridorPath.length===0){alert("No path found.");return;}
+  let fullPath=[{x:coordinates[start][0],y:coordinates[start][1]},...corridorPath.map(n=>navGraph[n]),{x:coordinates[dest][0],y:coordinates[dest][1]}];
+  
+  // Draw path
+  for(let i=0;i<fullPath.length-1;i++){
+    let line=document.createElementNS("http://www.w3.org/2000/svg","line");
+    line.setAttribute("x1",fullPath[i].x);line.setAttribute("y1",fullPath[i].y);
+    line.setAttribute("x2",fullPath[i+1].x);line.setAttribute("y2",fullPath[i+1].y);
+    line.setAttribute("class","curved-path");pathSvg.appendChild(line);
+  }
+  
+  // Add markers
+  let sm=document.createElement("div");sm.className="marker start-marker";sm.style.left=(coordinates[start][0]-10)+"px";sm.style.top=(coordinates[start][1]-10)+"px";mapDiv.appendChild(sm);
+  let em=document.createElement("div");em.className="marker end-marker";em.style.left=(coordinates[dest][0]-10)+"px";em.style.top=(coordinates[dest][1]-10)+"px";mapDiv.appendChild(em);
+}
+
+// Clear path
+function clearPath(){
+  document.querySelectorAll(".curved-path,.start-marker,.end-marker").forEach(e=>e.remove());
+}
+</script>
+</body>
+</html>
