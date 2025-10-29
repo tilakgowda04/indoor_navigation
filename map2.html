@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EFS-Second Floor Indoor Navigation</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #e6f0ff;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+header {
+  background: #0044cc;
+  color: white;
+  padding: 20px;
+  text-align: center;
+}
+.main-container {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+  min-height: calc(100vh - 120px);
+}
+
+/* Left Control Panel */
+.left-panel {
+  width: 350px;
+  background: white;
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  height: fit-content;
+  flex-shrink: 0;
+}
+.left-panel h3 {
+  margin-top: 0;
+  color: #0044cc;
+  font-size: 22px;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 10px;
+}
+.left-panel label {
+  display: block;
+  margin-top: 15px;
+  margin-bottom: 6px;
+  font-weight: bold;
+  color: #111;
+  font-size: 18px;
+}
+.left-panel select {
+  width: 100%;
+  padding: 14px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #111;
+  border: 2px solid #0044cc;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  outline: none;
+  cursor: pointer;
+}
+.left-panel select option {
+  font-size: 18px;
+  font-weight: bold;
+  color: #111;
+}
+.left-panel button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 10px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.left-panel button:first-of-type {
+  background: #0044cc;
+  color: white;
+}
+.left-panel button:first-of-type:hover {
+  background: #003399;
+}
+.left-panel button:last-of-type {
+  background: #e53935;
+  color: white;
+}
+.left-panel button:last-of-type:hover {
+  background: #c62828;
+}
+.left-panel .download-btn {
+  background: #28a745;
+  border-color: #28a745;
+}
+.left-panel .download-btn:hover {
+  background: #218838;
+}
+
+/* Map */
+.map-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 300px;
+}
+#map {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  height: auto;
+  aspect-ratio: 3/2;
+  background: url('Second Floor.jpg') no-repeat center;
+  background-size: contain;
+  border: 3px solid #0044cc;
+  border-radius: 10px;
+}
+
+/* Marker with label */
+.marker-wrapper {
+  position: absolute;
+  transform: translate(-50%, -50%) scale(var(--map-scale, 1));
+  text-align: center;
+}
+.marker {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid white;
+  z-index: 10;
+}
+.marker-label {
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%) scale(var(--map-scale, 1));
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.start-marker {
+  background: #00cc44 !important;
+}
+.end-marker {
+  background: #ff4444 !important;
+}
+.start-label {
+  background: #00cc44 !important;
+}
+.end-label {
+  background: #ff4444 !important;
+}
+
+/* Corridor graph - invisible */
+.graph-node {
+  display: none;
+}
+.node-label {
+  display: none;
+}
+.corridor-line {
+  display: none;
+}
+
+.path-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transform-origin: 0 0;
+}
+
+/* Dashed line path with smaller arrows */
+.curved-path {
+  fill: none;
+  stroke: #ff4444;
+  stroke-width: 4px;
+  stroke-linecap: round;
+  stroke-dasharray: 15px, 10px;
+  animation: pathFlow 2s linear infinite;
+}
+.path-arrow {
+  fill: #ff4444;
+  stroke: #ff4444;
+  stroke-width: 1px;
+}
+@keyframes pathFlow {
+  0% { stroke-dashoffset: 25px; }
+  100% { stroke-dashoffset: 0px; }
+}
+
+/* QR Code Section - FIXED */
+#qrSection {
+  display: none;
+  margin-top: 20px;
+  text-align: center;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 2px solid #28a745;
+}
+#qrSection h4 {
+  color: #28a745;
+  margin: 0 0 10px 0;
+}
+#qrSection p {
+  font-size: 12px;
+  color: #666;
+  margin: 5px 0;
+}
+#qrcode {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 10px 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* QR Download Page */
+.qr-download-page {
+  display: none;
+  max-width: 600px;
+  margin: 50px auto;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  overflow: hidden;
+}
+.qr-download-header {
+  background: linear-gradient(135deg, #0044cc, #0066ff);
+  color: white;
+  padding: 30px;
+  text-align: center;
+}
+.qr-download-header h2 {
+  margin: 0 0 10px 0;
+  font-size: 24px;
+}
+.qr-download-header p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 16px;
+}
+.qr-download-content {
+  padding: 30px;
+}
+.route-info {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 25px;
+  border-left: 5px solid #0044cc;
+}
+.route-info h3 {
+  margin: 0 0 15px 0;
+  color: #0044cc;
+  font-size: 18px;
+}
+.route-details {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 10px;
+}
+.route-point {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 8px;
+  font-weight: bold;
+  border: 2px solid #e9ecef;
+}
+.route-point.start {
+  border-color: #00cc44;
+  color: #00cc44;
+}
+.route-point.destination {
+  border-color: #ff4444;
+  color: #ff4444;
+}
+.route-arrow {
+  font-size: 24px;
+  color: #6c757d;
+}
+.download-section {
+  text-align: center;
+}
+.download-btn {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+  border: none;
+  padding: 15px 30px;
+  font-size: 18px;
+  font-weight: bold;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+  min-width: 250px;
+}
+.download-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+  background: linear-gradient(135deg, #218838, #1e7e34);
+}
+.download-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+.download-info {
+  margin-top: 20px;
+  padding: 15px;
+  background: #e3f2fd;
+  border-radius: 8px;
+  color: #1976d2;
+  font-size: 14px;
+}
+.back-to-nav {
+  margin-top: 20px;
+  text-align: center;
+}
+.back-to-nav a {
+  color: #0044cc;
+  text-decoration: none;
+  font-weight: bold;
+}
+.back-to-nav a:hover {
+  text-decoration: underline;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  color: white;
+  font-size: 18px;
+}
+.loading-spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #0044cc;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 2s linear infinite;
+  margin-bottom: 20px;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@media (max-width: 1400px) {
+  .main-container {
+    flex-direction: column;
+    align-items: center;
+  }
+  .left-panel {
+    width: 100%;
+    max-width: 500px;
+  }
+  #map {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 3/2;
+  }
+}
+
+@media (max-width: 650px) {
+  .marker {
+    width: 10px;
+    height: 10px;
+    border: 1px solid white;
+  }
+  .marker-label {
+    font-size: 10px;
+    padding: 1px 4px;
+    bottom: 110%;
+  }
+  .curved-path {
+    stroke-width: 3px;
+    stroke-dasharray: 12px, 8px;
+  }
+  .path-arrow {
+    transform: scale(0.8);
+  }
+  .qr-download-content {
+    padding: 15px;
+  }
+  .route-details {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .route-arrow {
+    transform: rotate(90deg);
+    font-size: 18px;
+  }
+  .left-panel {
+    padding: 15px;
+  }
+  .left-panel select {
+    padding: 10px;
+    font-size: 16px;
+  }
+  .left-panel button {
+    padding: 10px;
+    font-size: 14px;
+  }
+  .main-container {
+    padding: 10px;
+  }
+
+  /* IMPROVED QR code section for mobile */
+  #qrSection {
+    padding: 15px 10px;
+    margin: 15px 0;
+  }
+  
+  #qrcode {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: none;
+    margin: 15px 0;
+    box-sizing: border-box;
+  }
+  
+  /* QR code image container */
+  #qrcode > div {
+    width: 100%;
+    max-width: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+  
+  #qrcode img {
+    max-width: 100%;
+    width: auto;
+    height: auto;
+    max-height: 200px;
+    display: block;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    box-sizing: border-box;
+  }
+
+  /* Fallback link container styling */
+  #qrcode div[style*="border: 2px dashed"] {
+    width: 100% !important;
+    max-width: 280px !important;
+    margin: 0 auto !important;
+    padding: 15px !important;
+    font-size: 14px !important;
+    box-sizing: border-box !important;
+    text-align: center !important;
+  }
+  
+  /* URL display styling */
+  #qrcode div[style*="margin-top: 10px"] {
+    width: 100% !important;
+    max-width: 280px !important;
+    margin: 10px auto 0 auto !important;
+    padding: 10px !important;
+    box-sizing: border-box !important;
+    word-break: break-all !important;
+    overflow-wrap: break-word !important;
+  }
+  
+  #qrcode a {
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+    word-break: break-all !important;
+    display: block !important;
+    padding: 5px 0 !important;
+  }
+
+  /* QR Download Page mobile fixes */
+  .qr-download-page {
+    margin: 20px 10px;
+    max-width: calc(100% - 20px);
+  }
+  
+  .qr-download-header {
+    padding: 20px 15px;
+  }
+  
+  .qr-download-header h2 {
+    font-size: 20px;
+  }
+  
+  .download-btn {
+    min-width: auto;
+    width: 100%;
+    max-width: 300px;
+    padding: 12px 20px;
+    font-size: 16px;
+  }
+}
+
+/* Additional mobile landscape orientation fixes */
+@media (max-width: 900px) and (orientation: landscape) {
+  .main-container {
+    flex-direction: row;
+    gap: 15px;
+  }
+  .left-panel {
+    width: 300px;
+    max-width: 300px;
+  }
+}
+</style>
+</head>
+<body>
+<!-- QR Code Download Page -->
+<div id="qrDownloadPage" class="qr-download-page">
+  <div class="qr-download-header">
+    <h2>🧭 EFS Navigation Route</h2>
+    <p>Your personalized indoor navigation route is ready!</p>
+  </div>
+  <div class="qr-download-content">
+    <div class="route-info">
+      <h3>📍 Route Information</h3>
+      <div class="route-details">
+        <div class="route-point start">
+          <span>🚶‍♂️</span>
+          <span id="qrStartLocation">Start Location</span>
+        </div>
+        <div class="route-arrow">→</div>
+        <div class="route-point destination">
+          <span>🎯</span>
+          <span id="qrDestLocation">Destination</span>
+        </div>
+      </div>
+      <p style="margin: 15px 0 0 0; color: #6c757d; font-size: 14px;">
+        This animated GIF will show you the complete route with visual markers and directions.
+      </p>
+    </div>
+    <div class="download-section">
+      <button id="qrDownloadBtn" class="download-btn" onclick="downloadGIFFromQR()">
+        🎬 Download Animated Route GIF
+      </button>
+      <div class="download-info">
+        <strong>💡 What you'll get:</strong><br>
+        • Animated route visualization<br>
+        • Start and destination markers<br>
+        • Step-by-step directions<br>
+        • High-quality GIF file
+      </div>
+    </div>
+    <div class="back-to-nav">
+      <a href="#" onclick="showMainNavigation()">← Back to Navigation System</a>
+    </div>
+  </div>
+</div>
+
+<!-- Main Navigation Interface -->
+<div id="mainNavigation">
+  <header>
+    <h2>EFS-Second Floor Indoor Navigation</h2>
+    <p>Indoor pathfinding visualization</p>
+  </header>
+  <div class="main-container">
+    <!-- Left Navigation Panel -->
+    <div class="left-panel">
+      <h3>Navigation Controls</h3>
+      <label for="startSelect">Start Location:</label>
+      <select id="startSelect"></select>
+      <label for="destSelect">Destination:</label>
+      <select id="destSelect"></select>
+      <button onclick="showPath()">Show Route</button>
+      <button onclick="clearPath()">Clear Path</button>
+      <div id="qrSection">
+        <h4>📱 Scan QR Code</h4>
+        <p>Scan to share this route</p>
+        <div id="qrcode"></div>
+        <button class="download-btn" onclick="downloadGIF()">🎬 Download Animated GIF</button>
+      </div>
+    </div>
+    <!-- Map -->
+    <div class="map-container">
+      <div id="map">
+        <svg class="path-svg" id="pathSvg"></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+  <div class="loading-spinner"></div>
+  <div id="loadingText">Creating animated GIF...</div>
+  <div style="font-size: 14px; margin-top: 10px; opacity: 0.8;">Please wait while we process your navigation route</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+// === Locations ===
+const coordinates = {
+  "Printer1": [765, 110],
+  "Left Stair": [370, 345],
+  "Lift": [590, 475],
+  "Right Stair": [850, 400],
+  "Service lift": [750, 500],
+  "Resilience": [335, 440],
+  "Men's Restroom": [750, 390],
+  "Women's Restroom": [818, 560],
+  "Prudence": [465, 475],
+  "Quality Assurance": [342, 270],
+  "Printer2": [320, 620],
+  "Printer3": [560, 325],
+  "Integrity": [500, 170]
+};
+
+// 🎨 Marker colors
+const markerColors = {
+  "Printer1": "#e91e63",
+  "Left Stair": "#3f51b5",
+  "Lift": "#009688",
+  "Right Stair": "#ff9800",
+  "Service lift": "#9c27b0",
+  "Resilience": "#4caf50",
+  "Men's Restroom": "#f44336",
+  "Women's Restroom": "#673ab7",
+  "Prudence": "#2196f3",
+  "Quality Assurance": "#795548",
+  "Printer2": "#607d8b",
+  "Printer3": "#00bcd4",
+  "Integrity": "#8bc34a"
+};
+
+// === Corridor Graph ===
+const graph = {
+  N1: { coords: [340, 250], connections: ["N2"] },
+  N2: { coords: [380, 270], connections: ["N1", "N3"] },
+  N3: { coords: [440, 290], connections: ["N2", "N4"] },
+  N4: { coords: [440, 350], connections: ["N3", "N21"] },
+  N5: { coords: [590, 445], connections: ["N6", "N8"] },
+  N6: { coords: [690, 445], connections: ["N5", "N7", "N20"] },
+  N7: { coords: [685, 350], connections: ["N6", "N12"] },
+  N8: { coords: [520, 445], connections: ["N5", "N21", "N22", "N23"] },
+  N9: { coords: [535, 310], connections: ["N10", "N22"] },
+  N10: { coords: [535, 180], connections: ["N9"] },
+  N11: { coords: [850, 350], connections: ["N12"] },
+  N12: { coords: [765, 350], connections: ["N11", "N13", "N7"] },
+  N13: { coords: [765, 250], connections: ["N12"] },
+  N14: { coords: [380, 625], connections: ["N15", "N16"] },
+  N15: { coords: [380, 445], connections: ["N14", "N17", "N23"] },
+  N16: { coords: [435, 625], connections: ["N17", "N14"] },
+  N17: { coords: [435, 475], connections: ["N16", "N23", "N15"] },
+  N18: { coords: [685, 585], connections: ["N19", "N20"] },
+  N19: { coords: [820, 585], connections: ["N18"] },
+  N20: { coords: [690, 500], connections: ["N6", "N18"] },
+  N21: { coords: [520, 350], connections: ["N8", "N4", "N22"] },
+  N22: { coords: [535, 350], connections: ["N8", "N21", "N9"] },
+  N23: { coords: [425, 445], connections: ["N17", "N8", "N15"] }
+};
+
+let currentRouteData = null;
+let gifLibLoaded = false;
+let animationFrameId = null;
+
+// === Load GIF.js ===
+function loadGifLibrary() {
+  return new Promise((resolve, reject) => {
+    if (typeof GIF !== 'undefined') {
+      gifLibLoaded = true;
+      resolve();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js';
+    script.onload = () => {
+      gifLibLoaded = true;
+      resolve();
+    };
+    script.onerror = () => {
+      console.error('Failed to load GIF.js library');
+      reject(new Error('GIF library failed to load'));
+    };
+    document.head.appendChild(script);
+  });
+}
+
+// === Draw Markers ===
+const mapDiv = document.getElementById("map");
+const pathSvg = document.getElementById("pathSvg");
+
+// Draw location markers
+Object.keys(coordinates).forEach(loc => {
+  const [x, y] = coordinates[loc];
+  const wrapper = document.createElement("div");
+  wrapper.className = "marker-wrapper";
+  wrapper.style.left = x + "px";
+  wrapper.style.top = y + "px";
+  const label = document.createElement("div");
+  label.className = "marker-label";
+  label.textContent = loc;
+  label.style.background = markerColors[loc] || "#0044cc";
+  const marker = document.createElement("div");
+  marker.className = "marker";
+  marker.style.background = markerColors[loc] || "#0044cc";
+  wrapper.appendChild(label);
+  wrapper.appendChild(marker);
+  mapDiv.appendChild(wrapper);
+});
+
+// === Dropdowns ===
+const startSelect = document.getElementById("startSelect");
+const destSelect = document.getElementById("destSelect");
+
+["Integrity","Lift","Prudence", "Quality Assurance","Resilience"].forEach(loc => {
+  let option = document.createElement("option");
+  option.value = loc;
+  option.text = loc;
+  startSelect.appendChild(option);
+});
+
+Object.keys(coordinates).forEach(loc => {
+  let option = document.createElement("option");
+  option.value = loc;
+  option.text = loc;
+  destSelect.appendChild(option);
+});
+
+// === Distance Helper ===
+function dist(a, b) {
+  return Math.hypot(a[0] - b[0], a[1] - b[1]);
+}
+
+// === A* Pathfinding ===
+function findPath(startName, destName) {
+  function nearestNode(coord) {
+    let minNode = null, minDist = Infinity;
+    Object.keys(graph).forEach(n => {
+      const d = dist(coord, graph[n].coords);
+      if (d < minDist) { minDist = d; minNode = n; }
+    });
+    return minNode;
+  }
+  const startNode = nearestNode(coordinates[startName]);
+  const destNode = nearestNode(coordinates[destName]);
+  let open = [startNode], cameFrom = {}, gScore = { [startNode]: 0 },
+      fScore = { [startNode]: dist(graph[startNode].coords, graph[destNode].coords) };
+
+  while (open.length) {
+    open.sort((a, b) => fScore[a] - fScore[b]);
+    let current = open.shift();
+    if (current === destNode) {
+      let path = [current];
+      while (current in cameFrom) { current = cameFrom[current]; path.unshift(current); }
+      return path;
+    }
+    graph[current].connections.forEach(nb => {
+      const tentative = gScore[current] + dist(graph[current].coords, graph[nb].coords);
+      if (!(nb in gScore) || tentative < gScore[nb]) {
+        cameFrom[nb] = current;
+        gScore[nb] = tentative;
+        fScore[nb] = tentative + dist(graph[nb].coords, graph[destNode].coords);
+        if (!open.includes(nb)) open.push(nb);
+      }
+    });
+  }
+  return [];
+}
+
+// === Show Path ===
+let pathElement = null;
+
+function showPath() {
+  clearPath();
+  const start = startSelect.value, dest = destSelect.value;
+  if (!start || !dest) {
+    alert("Select start and destination!");
+    return;
+  }
+  if (start === dest) {
+    alert("Please select different start and destination locations.");
+    return;
+  }
+  const path = findPath(start, dest);
+  if (path.length < 2) {
+    alert("No path found");
+    return;
+  }
+
+  // Store route data
+  currentRouteData = {
+    start: start,
+    destination: dest,
+    corridorPath: path
+  };
+
+  // Calculate scale factor based on current map size
+  const map = document.getElementById('map');
+  const originalWidth = 1200; // Original design width
+  const scale = map.offsetWidth / originalWidth;
+  map.style.setProperty('--map-scale', scale);
+
+  // Draw path with scaling
+  const points = [coordinates[start], ...path.map(n => graph[n].coords), coordinates[dest]];
+  const pathData = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    pathData.push({
+      x1: points[i][0] * scale,
+      y1: points[i][1] * scale,
+      x2: points[i + 1][0] * scale,
+      y2: points[i + 1][1] * scale
+    });
+  }
+
+  pathData.forEach(segment => {
+    // Draw line
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", segment.x1);
+    line.setAttribute("y1", segment.y1);
+    line.setAttribute("x2", segment.x2);
+    line.setAttribute("y2", segment.y2);
+    line.setAttribute("class", "curved-path");
+    pathSvg.appendChild(line);
+
+    // Draw arrow at midpoint
+    const midPx = {
+      x: (segment.x1 + segment.x2) / 2,
+      y: (segment.y1 + segment.y2) / 2
+    };
+    const angle = Math.atan2(segment.y2 - segment.y1, segment.x2 - segment.x1) * 180 / Math.PI;
+    let arrow = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    arrow.setAttribute("points", "0,0 -12,-6 -12,6");
+    arrow.setAttribute("class", "path-arrow");
+    arrow.setAttribute("transform", `translate(${midPx.x}, ${midPx.y}) rotate(${angle}) scale(${scale})`);
+    pathSvg.appendChild(arrow);
+  });
+  pathElement = pathSvg.querySelectorAll(".curved-path");
+
+  // Add scaled markers
+  const smWrapper = document.createElement("div");
+  smWrapper.className = "marker-wrapper";
+  smWrapper.style.left = coordinates[start][0] * scale + "px";
+  smWrapper.style.top = coordinates[start][1] * scale + "px";
+  const smLabel = document.createElement("div");
+  smLabel.className = "marker-label start-label";
+  smLabel.textContent = `🚶‍♂️ ${start}`;
+  const smMarker = document.createElement("div");
+  smMarker.className = "marker start-marker";
+  smWrapper.appendChild(smLabel);
+  smWrapper.appendChild(smMarker);
+  mapDiv.appendChild(smWrapper);
+
+  const emWrapper = document.createElement("div");
+  emWrapper.className = "marker-wrapper";
+  emWrapper.style.left = coordinates[dest][0] * scale + "px";
+  emWrapper.style.top = coordinates[dest][1] * scale + "px";
+  const emLabel = document.createElement("div");
+  emLabel.className = "marker-label end-label";
+  emLabel.textContent = `🎯 ${dest}`;
+  const emMarker = document.createElement("div");
+  emMarker.className = "marker end-marker";
+  emWrapper.appendChild(emLabel);
+  emWrapper.appendChild(emMarker);
+  mapDiv.appendChild(emWrapper);
+
+  generateQRCode();
+  document.getElementById('qrSection').style.display = 'block';
+}
+
+// === Clear Path ===
+function clearPath() {
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+  pathSvg.innerHTML = '';
+  document.querySelectorAll(".marker-wrapper").forEach(e => e.remove());
+  
+  // Redraw location markers
+  Object.keys(coordinates).forEach(loc => {
+    const [x, y] = coordinates[loc];
+    const wrapper = document.createElement("div");
+    wrapper.className = "marker-wrapper";
+    wrapper.style.left = x + "px";
+    wrapper.style.top = y + "px";
+    const label = document.createElement("div");
+    label.className = "marker-label";
+    label.textContent = loc;
+    label.style.background = markerColors[loc] || "#0044cc";
+    const marker = document.createElement("div");
+    marker.className = "marker";
+    marker.style.background = markerColors[loc] || "#0044cc";
+    wrapper.appendChild(label);
+    wrapper.appendChild(marker);
+    mapDiv.appendChild(wrapper);
+  });
+
+  document.getElementById('qrSection').style.display = 'none';
+  currentRouteData = null;
+  pathElement = null;
+}
+
+// === QR Code Generation - IMPROVED ===
+function generateQRCode() {
+  console.log('Starting QR code generation...');
+  const qrSection = document.getElementById('qrSection');
+  const qrDiv = document.getElementById('qrcode');
+  qrDiv.innerHTML = '<div style="text-align: center; padding: 10px; color: #666;">Generating QR Code...</div>';
+  console.log('QR section and container initialized');
+
+  try {
+    const baseUrl = window.location.href.split('#')[0].split('?')[0];
+    const shareUrl = `${baseUrl}?start=${encodeURIComponent(currentRouteData.start)}&dest=${encodeURIComponent(currentRouteData.destination)}&download=true`;
+    console.log('Generated share URL:', shareUrl);
+
+    qrDiv.innerHTML = '';
+    console.log('Cleared QR container');
+
+    // Try local QR code generation first
+    if (typeof qrcode !== 'undefined') {
+      console.log('Attempting local QR code generation');
+      try {
+        const qr = qrcode(4, 'M');
+        qr.addData(shareUrl);
+        qr.make();
+        
+        // Create properly structured container for mobile
+        const qrContainer = document.createElement('div');
+        qrContainer.style.cssText = 'width: 100%; max-width: 200px; margin: 0 auto; display: flex; flex-direction: column; align-items: center;';
+        qrContainer.innerHTML = qr.createImgTag(4, 4);
+        
+        // Ensure the image is properly styled
+        const qrImage = qrContainer.querySelector('img');
+        if (qrImage) {
+          qrImage.style.cssText = 'max-width: 100%; height: auto; border: 2px solid #ddd; border-radius: 8px; display: block;';
+        }
+        
+        qrDiv.appendChild(qrContainer);
+        addUrlDisplay(qrContainer, shareUrl);
+        qrSection.style.display = 'block';
+        console.log('Local QR code generated successfully');
+        return;
+      } catch (error) {
+        console.warn('Local QR generation failed:', error);
+      }
+    } else {
+      console.log('Local QR library not available, falling back to online');
+    }
+
+    // Fallback to online QR code with improved mobile layout
+    const maxRetries = 3;
+    let retryCount = 0;
+
+    function tryLoadOnlineQR() {
+      const onlineQRContainer = document.createElement('div');
+      onlineQRContainer.style.cssText = 'width: 100%; max-width: 200px; margin: 0 auto; display: flex; flex-direction: column; align-items: center;';
+      
+      const qrImg = document.createElement('img');
+      qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&format=png&data=${encodeURIComponent(shareUrl)}&t=${Date.now()}`;
+      qrImg.alt = 'QR Code for Navigation Route';
+      qrImg.style.cssText = 'max-width: 100%; height: auto; border: 2px solid #ddd; border-radius: 8px; display: block;';
+      
+      qrImg.onload = () => {
+        console.log('Online QR code loaded successfully');
+        onlineQRContainer.appendChild(qrImg);
+        qrDiv.appendChild(onlineQRContainer);
+        addUrlDisplay(onlineQRContainer, shareUrl);
+        qrSection.style.display = 'block';
+      };
+      
+      qrImg.onerror = () => {
+        retryCount++;
+        if (retryCount < maxRetries) {
+          console.warn(`Retrying QR code load (${retryCount}/${maxRetries})...`);
+          setTimeout(tryLoadOnlineQR, 1000);
+        } else {
+          // Create fallback container with proper mobile styling
+          const fallbackContainer = document.createElement('div');
+          fallbackContainer.style.cssText = 'width: 100%; max-width: 280px; margin: 0 auto; display: flex; flex-direction: column; align-items: center;';
+          
+          const fallbackDiv = document.createElement('div');
+          fallbackDiv.style.cssText = 'border: 2px dashed #ccc; padding: 15px; border-radius: 8px; background: #f8f9fa; width: 100%; box-sizing: border-box; text-align: center;';
+          fallbackDiv.innerHTML = `
+            <p style="margin: 0 0 10px 0; color: #666; font-weight: bold;">📱 Manual Link</p>
+            <p style="margin: 0 0 10px 0; font-size: 12px; color: #666;">Copy and share this link:</p>
+          `;
+          
+          fallbackContainer.appendChild(fallbackDiv);
+          qrDiv.appendChild(fallbackContainer);
+          addUrlDisplay(fallbackDiv, shareUrl);
+          qrSection.style.display = 'block';
+        }
+      };
+    }
+
+    tryLoadOnlineQR();
+  } catch (error) {
+    console.error('Error generating QR code:', error);
+    const fallbackContainer = document.createElement('div');
+    fallbackContainer.style.cssText = 'width: 100%; max-width: 280px; margin: 0 auto;';
+    fallbackContainer.innerHTML = `
+      <div style="border: 2px dashed #ccc; padding: 15px; border-radius: 8px; background: #f8f9fa; text-align: center;">
+        <p style="margin: 0 0 10px 0; color: #666; font-weight: bold;">📱 Direct Link</p>
+        <p style="margin: 0 0 10px 0; font-size: 12px; color: #666;">Share this link for direct access:</p>
+      </div>
+    `;
+    qrDiv.appendChild(fallbackContainer);
+    addUrlDisplay(fallbackContainer.firstElementChild, shareUrl || '#');
+    qrSection.style.display = 'block';
+  }
+}
+
+function addUrlDisplay(container, url) {
+  const urlDiv = document.createElement('div');
+  urlDiv.style.cssText = 'margin-top: 10px; font-size: 10px; word-break: break-all; overflow-wrap: break-word; color: #666; padding: 8px; background: #fff; border: 1px solid #e0e0e0; border-radius: 4px; width: 100%; box-sizing: border-box;';
+  urlDiv.innerHTML = `
+    <div style="margin-bottom: 5px;"><strong>Share Link:</strong></div>
+    <a href="${url}" style="color: #0044cc; text-decoration: none; word-break: break-all; display: block; line-height: 1.3;" onclick="copyToClipboard('${url}')">${url}</a>
+    <div style="margin-top: 5px; font-size: 9px; color: #999;">Click link to copy</div>
+  `;
+  container.appendChild(urlDiv);
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Link copied to clipboard!');
+    }).catch(() => {
+      fallbackCopyToClipboard(text);
+    });
+  } else {
+    fallbackCopyToClipboard(text);
+  }
+}
+
+function fallbackCopyToClipboard(text) {
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  try {
+    document.execCommand('copy');
+    alert('Link copied to clipboard!');
+  } catch (err) {
+    alert('Unable to copy. Please copy the link manually.');
+  }
+  document.body.removeChild(textArea);
+}
+
+// === QR Download Page Functions ===
+function showQRDownloadPage(startLoc, destLoc) {
+  document.getElementById('mainNavigation').style.display = 'none';
+  document.getElementById('qrDownloadPage').style.display = 'block';
+  document.getElementById('qrStartLocation').textContent = startLoc;
+  document.getElementById('qrDestLocation').textContent = destLoc;
+  currentRouteData = {
+    start: startLoc,
+    destination: destLoc,
+    corridorPath: findPath(startLoc, destLoc)
+  };
+}
+
+function showMainNavigation() {
+  document.getElementById('qrDownloadPage').style.display = 'none';
+  document.getElementById('mainNavigation').style.display = 'block';
+}
+
+function downloadGIFFromQR() {
+  if (!currentRouteData) {
+    alert('No route data available. Please try again.');
+    return;
+  }
+  downloadGIF();
+}
+
+// === GIF Generation ===
+function showLoading(text = 'Creating animated GIF...') {
+  document.getElementById('loadingText').textContent = text;
+  document.getElementById('loadingOverlay').style.display = 'flex';
+}
+
+function hideLoading() {
+  document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+async function downloadGIF() {
+  const button = document.getElementById('qrDownloadBtn') || event.target;
+  const originalText = button.innerHTML;
+
+  try {
+    if (!currentRouteData) {
+      alert('Please generate a route first before downloading GIF.');
+      return;
+    }
+
+    button.innerHTML = '⏳ Preparing...';
+    button.disabled = true;
+    showLoading('Loading GIF library...');
+
+    if (!gifLibLoaded) {
+      try {
+        await loadGifLibrary();
+      } catch (error) {
+        hideLoading();
+        alert('Unable to load GIF creation library. Please check your internet connection and try again.');
+        button.innerHTML = originalText;
+        button.disabled = false;
+        return;
+      }
+    }
+
+    showLoading('Preparing GIF creation...');
+    const floorPlanImage = await loadFloorPlanImage();
+    showLoading('Creating animation frames...');
+
+    const gif = new GIF({
+      workers: 2,
+      quality: 10,
+      width: 1200,
+      height: 800,
+      workerScript: 'script/gif.worker.js',
+      debug: false
+    });
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 1200;
+    canvas.height = 800;
+
+    const points = [
+      coordinates[currentRouteData.start],
+      ...currentRouteData.corridorPath.map(n => graph[n].coords),
+      coordinates[currentRouteData.destination]
+    ];
+
+    const pathData = [];
+    for (let i = 0; i < points.length - 1; i++) {
+      pathData.push({
+        x1: points[i][0],
+        y1: points[i][1],
+        x2: points[i + 1][0],
+        y2: points[i + 1][1]
+      });
+    }
+
+    const totalFrames = 30;
+    for (let frame = 0; frame < totalFrames; frame++) {
+      showLoading(`Creating frame ${frame + 1} of ${totalFrames}...`);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(floorPlanImage, 0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = '#0044cc';
+      ctx.font = 'bold 28px Arial';
+      ctx.textAlign = 'center';
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 4;
+      ctx.strokeText('EFS Indoor Navigation', canvas.width / 2, 50);
+      ctx.fillText('EFS Indoor Navigation', canvas.width / 2, 50);
+
+      ctx.font = 'bold 18px Arial';
+      ctx.fillStyle = '#495057';
+      ctx.strokeText(`Route: ${currentRouteData.start} → ${currentRouteData.destination}`, canvas.width / 2, 80);
+      ctx.fillText(`Route: ${currentRouteData.start} → ${currentRouteData.destination}`, canvas.width / 2, 80);
+
+      // Draw location markers
+      Object.keys(coordinates).forEach(loc => {
+        const [x, y] = coordinates[loc];
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        const textWidth = ctx.measureText(loc).width;
+        const padding = 6;
+        const boxWidth = textWidth + padding * 2;
+        const boxHeight = 16;
+        const labelY = y - 14 - 2;
+        ctx.beginPath();
+        ctx.roundRect(x - boxWidth / 2, labelY - boxHeight, boxWidth, boxHeight, 12);
+        ctx.fillStyle = markerColors[loc] || '#0044cc';
+        ctx.fill();
+        ctx.fillStyle = 'white';
+        ctx.fillText(loc, x, labelY);
+        ctx.beginPath();
+        ctx.arc(x, y, 7, 0, 2 * Math.PI);
+        ctx.fillStyle = markerColors[loc] || '#0044cc';
+        ctx.fill();
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+
+      const progress = frame / (totalFrames - 1);
+      ctx.strokeStyle = '#ff4444';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.setLineDash([15, 10]);
+      ctx.lineDashOffset = -progress * 25;
+
+      // Draw path segments with arrows
+      pathData.forEach(path => {
+        ctx.beginPath();
+        ctx.moveTo(path.x1, path.y1);
+        ctx.lineTo(path.x2, path.y2);
+        ctx.stroke();
+
+        const midX = (path.x1 + path.x2) / 2;
+        const midY = (path.y1 + path.y2) / 2;
+        const dx = path.x2 - path.x1;
+        const dy = path.y2 - path.y1;
+        const angle = Math.atan2(dy, dx);
+        ctx.save();
+        ctx.translate(midX, midY);
+        ctx.rotate(angle);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-12, -6);
+        ctx.lineTo(-12, 6);
+        ctx.closePath();
+        ctx.fillStyle = '#ff4444';
+        ctx.fill();
+        ctx.strokeStyle = '#ff4444';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      ctx.setLineDash([]); // Reset dashes for markers
+
+      const startX = coordinates[currentRouteData.start][0];
+      const startY = coordinates[currentRouteData.start][1];
+      const glowRadius = 25 + 10 * Math.sin(progress * Math.PI * 6);
+      ctx.beginPath();
+      ctx.arc(startX, startY, glowRadius, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(0, 204, 68, 0.3)';
+      ctx.fill();
+
+      ctx.font = 'bold 12px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      const startText = `🚶‍♂️ ${currentRouteData.start}`;
+      const startTextWidth = ctx.measureText(startText).width;
+      const startBoxWidth = startTextWidth + 12;
+      const startBoxHeight = 16;
+      const startLabelY = startY - 14 - 2;
+      ctx.beginPath();
+      ctx.roundRect(startX - startBoxWidth / 2, startLabelY - startBoxHeight, startBoxWidth, startBoxHeight, 12);
+      ctx.fillStyle = '#00cc44';
+      ctx.fill();
+      ctx.fillStyle = 'white';
+      ctx.fillText(startText, startX, startLabelY);
+      ctx.beginPath();
+      ctx.arc(startX, startY, 7, 0, 2 * Math.PI);
+      ctx.fillStyle = '#00cc44';
+      ctx.fill();
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      const endX = coordinates[currentRouteData.destination][0];
+      const endY = coordinates[currentRouteData.destination][1];
+      const endGlowRadius = 25 + 10 * Math.cos(progress * Math.PI * 6);
+      ctx.beginPath();
+      ctx.arc(endX, endY, endGlowRadius, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(255, 68, 68, 0.3)';
+      ctx.fill();
+
+      ctx.font = 'bold 12px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      const endText = `🎯 ${currentRouteData.destination}`;
+      const endTextWidth = ctx.measureText(endText).width;
+      const endBoxWidth = endTextWidth + 12;
+      const endBoxHeight = 16;
+      const endLabelY = endY - 14 - 2;
+      ctx.beginPath();
+      ctx.roundRect(endX - endBoxWidth / 2, endLabelY - endBoxHeight, endBoxWidth, endBoxHeight, 12);
+      ctx.fillStyle = '#ff4444';
+      ctx.fill();
+      ctx.fillStyle = 'white';
+      ctx.fillText(endText, endX, endLabelY);
+      ctx.beginPath();
+      ctx.arc(endX, endY, 7, 0, 2 * Math.PI);
+      ctx.fillStyle = '#ff4444';
+      ctx.fill();
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      gif.addFrame(canvas, { delay: 200 });
+    }
+
+    showLoading('Rendering GIF file...');
+    gif.on('finished', function(blob) {
+      hideLoading();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const start = currentRouteData.start.replace(/\s+/g, '_');
+      const dest = currentRouteData.destination.replace(/\s+/g, '_');
+      a.href = url;
+      a.download = `EFS_Navigation_${start}_to_${dest}.gif`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      button.innerHTML = '✅ Downloaded!';
+      setTimeout(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+      }, 3000);
+    });
+
+    gif.on('progress', function(p) {
+      showLoading(`Rendering GIF: ${Math.round(p * 100)}%`);
+    });
+
+    gif.on('error', function(error) {
+      console.error('GIF creation error:', error);
+      hideLoading();
+      alert('Error creating GIF. Please try again.');
+      button.innerHTML = originalText;
+      button.disabled = false;
+    });
+
+    gif.render();
+  } catch (error) {
+    console.error('Error creating GIF:', error);
+    hideLoading();
+    alert('Error creating GIF. Please try again.');
+    button.innerHTML = originalText;
+    button.disabled = false;
+  }
+}
+
+function loadFloorPlanImage() {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => {
+      console.warn('Could not load floor plan image, using fallback');
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 1200;
+      canvas.height = 800;
+      ctx.fillStyle = '#f8f9fa';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = '#e9ecef';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < canvas.width; i += 50) {
+        ctx.beginPath(); 
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, canvas.height);
+        ctx.stroke();
+      }
+      for (let i = 0; i < canvas.height; i += 50) {
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(canvas.width, i);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = '#6c757d';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(20, canvas.height / 3);
+      ctx.lineTo(canvas.width - 20, canvas.height / 3);
+      ctx.moveTo(20, 2 * canvas.height / 3);
+      ctx.lineTo(canvas.width - 20, 2 * canvas.height / 3);
+      ctx.moveTo(canvas.width / 3, 20);
+      ctx.lineTo(canvas.width / 3, canvas.height - 20);
+      ctx.moveTo(2 * canvas.width / 3, 20);
+      ctx.lineTo(2 * canvas.width / 3, canvas.height - 20);
+      ctx.stroke();
+      const fallbackImg = new Image();
+      fallbackImg.onload = () => resolve(fallbackImg);
+      fallbackImg.src = canvas.toDataURL();
+    };
+    img.src = 'Second Floor.jpg';
+  });
+}
+
+// === Handle URL Parameters ===
+window.addEventListener('load', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const startParam = urlParams.get('start');
+  const destParam = urlParams.get('dest');
+  const downloadParam = urlParams.get('download');
+
+  if (startParam && destParam && downloadParam === 'true' && coordinates[startParam] && coordinates[destParam]) {
+    showQRDownloadPage(startParam, destParam);
+  } else if (startParam && destParam && coordinates[startParam] && coordinates[destParam]) {
+    startSelect.value = startParam;
+    destSelect.value = destParam;
+    showPath();
+  }
+});
+
+window.addEventListener('resize', () => {
+  clearPath();
+  if (currentRouteData) {
+    showPath();
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EFS Indoor Navigation</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #e6f0ff;
+  margin: 0;
+  padding: 0;
+}
+header {
+  background: #0044cc;
+  color: white;
+  padding: 20px;
+  text-align: center;
+}
+.main-container {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+/* Left Control Panel */
+.left-panel {
+  width: 350px;
+  background: white;
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  height: fit-content;
+  margin-left: -40px;
+}
+.left-panel h3 {
+  margin-top: 0;
+  color: #0044cc;
+  font-size: 22px;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 10px;
+}
+.left-panel label {
+  display: block;
+  margin-top: 15px;
+  margin-bottom: 6px;
+  font-weight: bold;
+  color: #000;
+  font-size: 20px;
+}
+.left-panel select {
+  width: 100%;
+  padding: 16px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #000;
+  border: 2px solid #0044cc;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  outline: none;
+  cursor: pointer;
+  background: #f9f9f9;
+}
+.left-panel select option {
+  font-size: 20px;
+  font-weight: 800;
+  color: #000;
+}
+.left-panel button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 19px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.left-panel button:first-of-type {
+  background: #0044cc;
+  color: white;
+}
+.left-panel button:first-of-type:hover {
+  background: #003399;
+}
+.left-panel button:last-of-type {
+  background: #e53935;
+  color: white;
+}
+.left-panel button:last-of-type:hover {
+  background: #c62828;
+}
+
+/* Map */
+#map {
+  position: relative;
+  width: 1000px;
+  height: 1000px;
+  background: url('images1/third_floor.jpg') no-repeat center;
+  background-size: contain;
+  border: 3px solid #0044cc;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+/* Marker with label */
+.marker-wrapper {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+.marker {
+  width: 14px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid white;
+  z-index: 10;
+}
+.marker-label {
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Graph nodes (corridor) - hidden */
+.graph-node {
+  display: none;   /* hide corridor nodes */
+}
+
+/* Corridor connection lines - hidden */
+.corridor-line {
+  display: none;   /* hide corridor connection lines */
+}
+
+.path-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* 3D-looking moving path */
+.red-path {
+  fill: none;
+  stroke: url(#grad1);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.6));
+  stroke-dasharray: 15 20;
+  animation: moveDash 1s linear infinite;
+}
+@keyframes moveDash {
+  to { stroke-dashoffset: -35; }
+}
+
+/* QR Code Section */
+#qrSection {
+  display: none;
+  margin-top: 20px;
+  text-align: center;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 2px solid #28a745;
+}
+
+#qrSection h4 {
+  color: #28a745;
+  margin: 0 0 10px 0;
+}
+
+#qrSection p {
+  font-size: 12px;
+  color: #666;
+  margin: 5px 0;
+}
+
+#qrcode {
+  display: flex;
+  justify-content: center;
+  margin: 10px 0;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  color: white;
+  font-size: 18px;
+}
+
+.loading-spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #0044cc;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 2s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+</style>
+</head>
+<body>
+<header>
+  <h2>EFS-Third floor Indoor Navigation</h2>
+  <p>Indoor pathfinding visualization</p>
+</header>
+
+<div class="main-container">
+  <!-- Left Navigation Panel -->
+  <div class="left-panel">
+    <h3>Navigation Controls</h3>
+    <label for="startSelect">Start Location:</label>
+    <select id="startSelect"></select>
+
+    <label for="destSelect">Destination:</label>
+    <select id="destSelect"></select>
+
+    <button onclick="showPath()">Show Route</button>
+    <button onclick="clearPath()">Clear Path</button>
+    
+    <!-- QR Code Section -->
+    <div id="qrSection">
+      <h4>📱 Scan QR Code</h4>
+      <p>Scan to get direct download link</p>
+      <div id="qrcode"></div>
+      <button onclick="downloadGIF()" style="background: #28a745; border-color: #28a745; margin-top: 10px;">
+        🎬 Download Animated GIF
+      </button>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div id="map">
+    <svg class="path-svg" id="pathSvg">
+      <defs>
+        <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#ff9999;stop-opacity:1" />
+          <stop offset="50%" style="stop-color:#ff0000;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#990000;stop-opacity:1" />
+        </linearGradient>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<!-- Loading overlay -->
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+  <div class="loading-spinner"></div>
+  <div id="loadingText">Creating animated GIF...</div>
+  <div style="font-size: 14px; margin-top: 10px; opacity: 0.8;">Please wait while we process your navigation route</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+// Load GIF.js dynamically with error handling
+let gifLibLoaded = false;
+let qrLibLoaded = false;
+let currentRouteData = null;
+
+function loadGifLibrary() {
+  return new Promise((resolve, reject) => {
+    if (typeof GIF !== 'undefined') {
+      gifLibLoaded = true;
+      resolve();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'script/gif.js';
+    script.onload = () => {
+      gifLibLoaded = true;
+      resolve();
+    };
+    script.onerror = () => {
+      console.error('Failed to load GIF.js library');
+      reject(new Error('GIF library failed to load'));
+    };
+    document.head.appendChild(script);
+  });
+}
+
+// Check if QR library loaded, if not load alternative
+function ensureQRLibrary() {
+  return new Promise((resolve) => {
+    if (typeof qrcode !== 'undefined') {
+      qrLibLoaded = true;
+      resolve();
+      return;
+    }
+    
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';
+    script.onload = () => {
+      qrLibLoaded = true;
+      resolve();
+    };
+    script.onerror = () => {
+      console.warn('QR library failed to load from CDN');
+      resolve();
+    };
+    document.head.appendChild(script);
+  });
+}
+
+// Locations
+const coordinates = {
+  "Lean":[195,455],
+  "Excellence":[220,535],
+  "People Room":[285,495],
+  "Precision":[350,490],
+  "Governance":[220,620],
+  "Passion":[340,625],
+  "Men's Restroom":[680,460],
+  "Women's Restroom":[778,675],
+  "Lift":[515,565],
+  "Service lift":[680,600],
+  "Stair1":[360,325],
+  "Stair2":[815,490],
+  "Printer1":[370,150],
+  "Printer2":[660,925]
+};
+
+// Marker colors
+const markerColors = {
+  "Lean":"#2196f3",
+  "Excellence":"#4caf50",
+  "People Room":"#ff9800",
+  "Precision":"#9c27b0",
+  "Governance":"#3f51b5",
+  "Passion":"#e91e63",
+  "Men's Restroom":"#f44336",
+  "Women's Restroom":"#673ab7",
+  "Lift":"#009688",
+  "Service lift":"#8bc34a",
+  "Stair1":"#795548",
+  "Stair2":"#607d8b",
+  "Printer1":"#00bcd4",
+  "Printer2":"#ff5722"
+};
+
+const mapDiv=document.getElementById("map");
+const pathSvg=document.getElementById("pathSvg");
+
+// Draw markers
+Object.keys(coordinates).forEach(loc=>{
+  const [x,y]=coordinates[loc];
+  const wrapper=document.createElement("div");
+  wrapper.className="marker-wrapper";
+  wrapper.style.left=x+"px";
+  wrapper.style.top=y+"px";
+
+  const label=document.createElement("div");
+  label.className="marker-label";
+  label.textContent=loc;
+  label.style.background = markerColors[loc] || "#0044cc";
+
+  const marker=document.createElement("div");
+  marker.className="marker";
+  marker.style.background = markerColors[loc] || "#0044cc";
+
+  wrapper.appendChild(label);
+  wrapper.appendChild(marker);
+  mapDiv.appendChild(wrapper);
+});
+
+// Dropdowns
+const startSelect=document.getElementById("startSelect");
+const destSelect=document.getElementById("destSelect");
+
+// Start dropdown
+["Excellence","Governance","People Room","Precision","Passion","Lean"].forEach(loc=>{
+  let option=document.createElement("option");
+  option.value=loc; option.text=loc;
+  startSelect.appendChild(option);
+});
+// Destination dropdown
+["Lean","Excellence","People Room","Precision","Governance","Passion",
+ "Men's Restroom","Women's Restroom","Lift","Service lift",
+ "Stair1","Stair2","Printer1","Printer2"].forEach(loc=>{
+  let option=document.createElement("option");
+  option.value=loc; option.text=loc;
+  destSelect.appendChild(option);
+});
+
+// Distance helper
+function dist(a,b){ return Math.hypot(a[0]-b[0], a[1]-b[1]); }
+
+// Graph
+const graph = {
+  N1:{coords:[400,145],connections:["N10"]},
+  N2:{coords:[410,707],connections:["N16","N20"]},
+  N3:{coords:[420,290],connections:["N10","N4"]},
+  N4:{coords:[420,410],connections:["N3","N22","N17"]},
+  N5:{coords:[590,415],connections:["N12","N6"]},
+  N6:{coords:[665,415],connections:["N5","N9"]},
+  N7:{coords:[600,695],connections:["N18","N19"]},
+  N8:{coords:[360,460],connections:["N22","N23"]},
+  N9:{coords:[805,420],connections:["N6"]},
+  N10:{coords:[415,180],connections:["N1","N3"]},
+  N11:{coords:[310,655],connections:["N13","N14"]},
+  N12:{coords:[620,518],connections:["N21","N5","N18"]},
+  N13:{coords:[355,655],connections:["N20","N11"]},
+  N14:{coords:[220,655],connections:["N11"]},
+  N15:{coords:[225,460],connections:["N23"]},
+  N16:{coords:[395,625],connections:["N17","N2"]},
+  N17:{coords:[405,518],connections:["N4","N16","N21"]},
+  N18:{coords:[620,590],connections:["N12","N7"]},
+  N19:{coords:[770,695],connections:["N7"]},
+  N20:{coords:[360,707],connections:["N2","N13"]},
+  N21:{coords:[505,518],connections:["N17","N12"]},
+  N22:{coords:[370,410],connections:["N4","N8","n24"]},
+  N23:{coords:[280,460],connections:["N8","N15"]},
+  N24:{coords:[200,460],connections:[]}
+
+
+};
+
+// Draw graph nodes + connections (invisible due to CSS)
+Object.keys(graph).forEach(n => {
+  const node = graph[n];
+  const div = document.createElement("div");
+  div.className = "graph-node";
+  div.style.left = (node.coords[0]-9) + "px"; 
+  div.style.top  = (node.coords[1]-9) + "px"; 
+  div.textContent = n;
+  mapDiv.appendChild(div);
+
+  node.connections.forEach(nb=>{
+    if(graph[nb]){
+      const [x1,y1]=node.coords;
+      const [x2,y2]=graph[nb].coords;
+      const dx=x2-x1, dy=y2-y1;
+      const length=Math.sqrt(dx*dx+dy*dy);
+      const angle=Math.atan2(dy,dx)*180/Math.PI;
+      const line=document.createElement("div");
+      line.className="corridor-line";
+      line.style.width=length+"px";
+      line.style.left=x1+"px";
+      line.style.top=y1+"px";
+      line.style.transform=`rotate(${angle}deg)`;
+      mapDiv.appendChild(line);
+    }
+  });
+});
+
+// Pathfinding (A*)
+function findPath(startName,destName){
+  function nearestNode(coord){
+    let minNode=null,minDist=Infinity;
+    Object.keys(graph).forEach(n=>{
+      const d=dist(coord,graph[n].coords);
+      if(d<minDist){ minDist=d; minNode=n; }
+    });
+    return minNode;
+  }
+  const startNode=nearestNode(coordinates[startName]);
+  const destNode=nearestNode(coordinates[destName]);
+  let open=[startNode], cameFrom={}, gScore={ [startNode]:0 },
+      fScore={ [startNode]:dist(graph[startNode].coords, graph[destNode].coords) };
+
+  while(open.length){
+    open.sort((a,b)=>fScore[a]-fScore[b]);
+    let current=open.shift();
+    if(current===destNode){
+      let path=[current];
+      while(current in cameFrom){ current=cameFrom[current]; path.unshift(current); }
+      return path;
+    }
+    graph[current].connections.forEach(nb=>{
+      const tentative=gScore[current]+dist(graph[current].coords, graph[nb].coords);
+      if(!(nb in gScore)||tentative<gScore[nb]){
+        cameFrom[nb]=current;
+        gScore[nb]=tentative;
+        fScore[nb]=tentative+dist(graph[nb].coords, graph[destNode].coords);
+        if(!open.includes(nb)) open.push(nb);
+      }
+    });
+  }
+  return [];
+}
+
+// Show Path
+function showPath(){
+  clearPath();
+  const start=startSelect.value, dest=destSelect.value;
+  if(!start||!dest){ alert("Select start and destination!"); return; }
+  const path=findPath(start,dest);
+  if(path.length<2){ alert("No path found"); return; }
+
+  const points=[coordinates[start], ...path.map(n=>graph[n].coords), coordinates[dest]];
+  const poly=document.createElementNS("http://www.w3.org/2000/svg","polyline");
+  poly.setAttribute("points", points.map(p=>p.join(",")).join(" "));
+  poly.setAttribute("class","red-path");
+  pathSvg.appendChild(poly);
+
+  // Store current route data for QR code and GIF generation
+  currentRouteData = {
+    start: start,
+    destination: dest,
+    path: path,
+    points: points
+  };
+
+  // Generate QR code
+  ensureQRLibrary().then(() => {
+    generateQRCode();
+  });
+}
+
+// Clear Path
+function clearPath(){
+  pathSvg.innerHTML=`<defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff9999;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#ff0000;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#990000;stop-opacity:1" />
+    </linearGradient>
+  </defs>`;
+  
+  document.getElementById('qrSection').style.display = 'none';
+  currentRouteData = null;
+}
+
+// Generate QR Code with route parameters
+async function generateQRCode() {
+  const qrSection = document.getElementById('qrSection');
+  const qrDiv = document.getElementById('qrcode');
+  
+  qrDiv.innerHTML = '<div style="text-align: center; padding: 10px;">Generating QR Code...</div>';
+  
+  try {
+    const baseUrl = window.location.href.split('#')[0].split('?')[0];
+    const downloadUrl = `${baseUrl}?start=${encodeURIComponent(currentRouteData.start)}&dest=${encodeURIComponent(currentRouteData.destination)}&download=true`;
+    
+    qrDiv.innerHTML = '';
+    
+    if (typeof qrcode !== 'undefined') {
+      try {
+        const qr = qrcode(4, 'M');
+        qr.addData(downloadUrl);
+        qr.make();
+        
+        const qrImage = document.createElement('div');
+        qrImage.innerHTML = qr.createImgTag(4, 4);
+        qrDiv.appendChild(qrImage);
+        
+        addUrlDisplay(qrDiv, downloadUrl);
+        qrSection.style.display = 'block';
+        return;
+      } catch (error) {
+        console.warn('Local QR generation failed:', error);
+      }
+    }
+    
+    const onlineQRDiv = document.createElement('div');
+    onlineQRDiv.style.textAlign = 'center';
+    
+    const qrImg = document.createElement('img');
+    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&format=png&data=${encodeURIComponent(downloadUrl)}`;
+    qrImg.alt = 'QR Code';
+    qrImg.style.cssText = 'max-width: 150px; border: 2px solid #ddd; border-radius: 8px;';
+    
+    qrImg.onload = () => {
+      console.log('Online QR code loaded successfully');
+    };
+    
+    qrImg.onerror = () => {
+      qrImg.style.display = 'none';
+      const fallbackDiv = document.createElement('div');
+      fallbackDiv.style.cssText = 'border: 2px dashed #ccc; padding: 15px; border-radius: 8px; background: #f8f9fa;';
+      fallbackDiv.innerHTML = `
+        <p style="margin: 0 0 10px 0; color: #666; font-weight: bold;">📱 Manual Link</p>
+        <p style="margin: 0 0 10px 0; font-size: 12px; color: #666;">Copy and share this link:</p>
+      `;
+      onlineQRDiv.appendChild(fallbackDiv);
+      addUrlDisplay(fallbackDiv, downloadUrl);
+    };
+    
+    onlineQRDiv.appendChild(qrImg);
+    qrDiv.appendChild(onlineQRDiv);
+    
+    addUrlDisplay(qrDiv, downloadUrl);
+    qrSection.style.display = 'block';
+    
+  } catch (error) {
+    console.error('Error generating QR code:', error);
+    qrDiv.innerHTML = `
+      <div style="border: 2px dashed #ccc; padding: 15px; border-radius: 8px; background: #f8f9fa; text-align: center;">
+        <p style="margin: 0 0 10px 0; color: #666; font-weight: bold;">📱 Direct Link</p>
+        <p style="margin: 0 0 10px 0; font-size: 12px; color: #666;">Share this link for direct download:</p>
+      </div>
+    `;
+    addUrlDisplay(qrDiv.firstElementChild, downloadUrl || '#');
+    qrSection.style.display = 'block';
+  }
+}
+
+function addUrlDisplay(container, url) {
+  const urlDiv = document.createElement('div');
+  urlDiv.style.cssText = 'margin-top: 10px; font-size: 10px; word-break: break-all; color: #666; padding: 8px; background: #fff; border: 1px solid #e0e0e0; border-radius: 4px;';
+  urlDiv.innerHTML = `
+    <div style="margin-bottom: 5px;"><strong>Share Link:</strong></div>
+    <a href="${url}" style="color: #0044cc; text-decoration: none;" onclick="copyToClipboard('${url}')">${url}</a>
+    <div style="margin-top: 5px; font-size: 9px; color: #999;">Click link to copy</div>
+  `;
+  container.appendChild(urlDiv);
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Link copied to clipboard!');
+    }).catch(() => {
+      fallbackCopyToClipboard(text);
+    });
+  } else {
+    fallbackCopyToClipboard(text);
+  }
+}
+
+function fallbackCopyToClipboard(text) {
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  try {
+    document.execCommand('copy');
+    alert('Link copied to clipboard!');
+  } catch (err) {
+    alert('Unable to copy. Please copy the link manually.');
+  }
+  document.body.removeChild(textArea);
+}
+
+function showLoading(text = 'Creating animated GIF...') {
+  document.getElementById('loadingText').textContent = text;
+  document.getElementById('loadingOverlay').style.display = 'flex';
+}
+
+function hideLoading() {
+  document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+async function downloadGIF() {
+  const button = event.target;
+  const originalText = button.innerHTML;
+  
+  try {
+    if (!currentRouteData) {
+      alert('Please generate a route first before downloading GIF.');
+      return;
+    }
+
+    button.innerHTML = '⏳ Preparing...';
+    button.disabled = true;
+    showLoading('Loading GIF library...');
+
+    if (!gifLibLoaded) {
+      try {
+        await loadGifLibrary();
+      } catch (error) {
+        hideLoading();
+        alert('Unable to load GIF creation library. Please check your internet connection and try again.');
+        button.innerHTML = originalText;
+        button.disabled = false;
+        return;
+      }
+    }
+
+    showLoading('Preparing GIF creation...');
+    const floorPlanImage = await loadFloorPlanImage();
+    showLoading('Creating animation frames...');
+    
+    const gif = new GIF({
+      workers: 2,
+      quality: 10,
+      width: 1000,
+      height: 1000,
+      workerScript: 'script/gif.worker.js',
+      debug: false
+    });
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 1000;
+    canvas.height = 1000;
+
+    const totalFrames = 30;
+    
+    for (let frame = 0; frame < totalFrames; frame++) {
+      showLoading(`Creating frame ${frame + 1} of ${totalFrames}...`);
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(floorPlanImage, 0, 0, canvas.width, canvas.height);
+      
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.fillStyle = '#0044cc';
+      ctx.font = 'bold 28px Arial';
+      ctx.textAlign = 'center';
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 4;
+      ctx.strokeText('EFS Indoor Navigation', canvas.width / 2, 50);
+      ctx.fillText('EFS Indoor Navigation', canvas.width / 2, 50);
+      
+      ctx.font = 'bold 18px Arial';
+      ctx.fillStyle = '#495057';
+      ctx.strokeText(`Route: ${currentRouteData.start} → ${currentRouteData.destination}`, canvas.width / 2, 80);
+      ctx.fillText(`Route: ${currentRouteData.start} → ${currentRouteData.destination}`, canvas.width / 2, 80);
+      
+      // Draw all markers
+      Object.keys(coordinates).forEach(loc => {
+        const [x, y] = coordinates[loc];
+        
+        // Draw label
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        const textWidth = ctx.measureText(loc).width;
+        const padding = 6;
+        const boxWidth = textWidth + padding * 2;
+        const boxHeight = 16;
+        const labelY = y - 14 - 2; // Position above marker
+        
+        ctx.beginPath();
+        ctx.roundRect(x - boxWidth / 2, labelY - boxHeight, boxWidth, boxHeight, 12);
+        ctx.fillStyle = markerColors[loc] || '#0044cc';
+        ctx.fill();
+        
+        ctx.fillStyle = 'white';
+        ctx.fillText(loc, x, labelY);
+        
+        // Draw marker
+        ctx.beginPath();
+        ctx.arc(x, y, 7, 0, 2 * Math.PI); // 14px diameter
+        ctx.fillStyle = markerColors[loc] || '#0044cc';
+        ctx.fill();
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+      
+      const progress = frame / (totalFrames - 1);
+      
+      // Draw animated path
+      ctx.strokeStyle = '#ff4444';
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      
+      const dashOffset = -progress * 40;
+      ctx.setLineDash([25, 15]);
+      ctx.lineDashOffset = dashOffset;
+      
+      ctx.beginPath();
+      ctx.moveTo(currentRouteData.points[0][0], currentRouteData.points[0][1]);
+      for (let i = 1; i < currentRouteData.points.length; i++) {
+        ctx.lineTo(currentRouteData.points[i][0], currentRouteData.points[i][1]);
+      }
+      ctx.stroke();
+      
+      // Draw animated arrows
+      ctx.fillStyle = '#ff4444';
+      ctx.setLineDash([]);
+      const pulseScale = 1 + 0.3 * Math.sin(progress * Math.PI * 4);
+      
+      for (let i = 0; i < currentRouteData.points.length - 1; i++) {
+        const startX = currentRouteData.points[i][0];
+        const startY = currentRouteData.points[i][1];
+        const endX = currentRouteData.points[i + 1][0];
+        const endY = currentRouteData.points[i + 1][1];
+        
+        const midX = (startX + endX) / 2;
+        const midY = (startY + endY) / 2;
+        const angle = Math.atan2(endY - startY, endX - startX);
+        
+        ctx.save();
+        ctx.translate(midX, midY);
+        ctx.rotate(angle);
+        ctx.scale(pulseScale, pulseScale);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-15, -8);
+        ctx.lineTo(-15, 8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+      
+      // Animate start marker
+      const startX = coordinates[currentRouteData.start][0];
+      const startY = coordinates[currentRouteData.start][1];
+      
+      const glowRadius = 25 + 10 * Math.sin(progress * Math.PI * 6);
+      ctx.beginPath();
+      ctx.arc(startX, startY, glowRadius, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(0, 204, 68, 0.3)';
+      ctx.fill();
+      
+      // Start marker
+      ctx.font = 'bold 12px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      const startText = `🚶‍♂️ ${currentRouteData.start}`;
+      const startTextWidth = ctx.measureText(startText).width;
+      const startBoxWidth = startTextWidth + 12;
+      const startBoxHeight = 16;
+      const startLabelY = startY - 14 - 2;
+      
+      ctx.beginPath();
+      ctx.roundRect(startX - startBoxWidth / 2, startLabelY - startBoxHeight, startBoxWidth, startBoxHeight, 12);
+      ctx.fillStyle = '#00cc44';
+      ctx.fill();
+      
+      ctx.fillStyle = 'white';
+      ctx.fillText(startText, startX, startLabelY);
+      
+      ctx.beginPath();
+      ctx.arc(startX, startY, 7, 0, 2 * Math.PI);
+      ctx.fillStyle = '#00cc44';
+      ctx.fill();
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Animate end marker
+      const endX = coordinates[currentRouteData.destination][0];
+      const endY = coordinates[currentRouteData.destination][1];
+      
+      const endGlowRadius = 25 + 10 * Math.cos(progress * Math.PI * 6);
+      ctx.beginPath();
+      ctx.arc(endX, endY, endGlowRadius, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(255, 68, 68, 0.3)';
+      ctx.fill();
+      
+      // End marker
+      ctx.font = 'bold 12px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      const endText = `🎯 ${currentRouteData.destination}`;
+      const endTextWidth = ctx.measureText(endText).width;
+      const endBoxWidth = endTextWidth + 12;
+      const endBoxHeight = 16;
+      const endLabelY = endY - 14 - 2;
+      
+      ctx.beginPath();
+      ctx.roundRect(endX - endBoxWidth / 2, endLabelY - endBoxHeight, endBoxWidth, endBoxHeight, 12);
+      ctx.fillStyle = '#ff4444';
+      ctx.fill();
+      
+      ctx.fillStyle = 'white';
+      ctx.fillText(endText, endX, endLabelY);
+      
+      ctx.beginPath();
+      ctx.arc(endX, endY, 7, 0, 2 * Math.PI);
+      ctx.fillStyle = '#ff4444';
+      ctx.fill();
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      gif.addFrame(canvas, { delay: 200 });
+    }
+    
+    showLoading('Rendering GIF file...');
+    
+    gif.on('finished', function(blob) {
+      hideLoading();
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const start = currentRouteData.start.replace(/\s+/g, '_');
+      const dest = currentRouteData.destination.replace(/\s+/g, '_');
+      a.href = url;
+      a.download = `EFS_Navigation_${start}_to_${dest}.gif`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      button.innerHTML = '✅ Downloaded!';
+      setTimeout(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+      }, 3000);
+    });
+    
+    gif.on('progress', function(p) {
+      showLoading(`Rendering GIF: ${Math.round(p * 100)}%`);
+    });
+
+    gif.on('error', function(error) {
+      console.error('GIF creation error:', error);
+      hideLoading();
+      alert('Error creating GIF. Please try again.');
+      button.innerHTML = originalText;
+      button.disabled = false;
+    });
+    
+    gif.render();
+    
+  } catch (error) {
+    console.error('Error creating GIF:', error);
+    hideLoading();
+    alert('Error creating GIF. Please try again.');
+    button.innerHTML = originalText;
+    button.disabled = false;
+  }
+}
+
+function loadFloorPlanImage() {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => {
+      console.warn('Could not load floor plan image, using fallback');
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 1000;
+      canvas.height = 1000;
+      
+      ctx.fillStyle = '#f8f9fa';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.strokeStyle = '#e9ecef';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < canvas.width; i += 50) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, canvas.height);
+        ctx.stroke();
+      }
+      for (let i = 0; i < canvas.height; i += 50) {
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(canvas.width, i);
+        ctx.stroke();
+      }
+      
+      ctx.strokeStyle = '#6c757d';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+      
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(20, canvas.height / 3);
+      ctx.lineTo(canvas.width - 20, canvas.height / 3);
+      ctx.moveTo(20, 2 * canvas.height / 3);
+      ctx.lineTo(canvas.width - 20, 2 * canvas.height / 3);
+      ctx.moveTo(canvas.width / 3, 20);
+      ctx.lineTo(canvas.width / 3, canvas.height - 20);
+      ctx.moveTo(2 * canvas.width / 3, 20);
+      ctx.lineTo(2 * canvas.width / 3, canvas.height - 20);
+      ctx.stroke();
+      
+      const fallbackImg = new Image();
+      fallbackImg.onload = () => resolve(fallbackImg);
+      fallbackImg.src = canvas.toDataURL();
+    };
+    img.src = 'images/third_floor.jpg';
+  });
+}
+
+// Add roundRect method to CanvasRenderingContext2D if not available
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+    if (width < 2 * radius) radius = width / 2;
+    if (height < 2 * radius) radius = height / 2;
+    this.beginPath();
+    this.moveTo(x + radius, y);
+    this.arcTo(x + width, y, x + width, y + height, radius);
+    this.arcTo(x + width, y + height, x, y + height, radius);
+    this.arcTo(x, y + height, x, y, radius);
+    this.arcTo(x, y, x + width, y, radius);
+    this.closePath();
+    return this;
+  };
+}
+
+window.addEventListener('load', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const startParam = urlParams.get('start');
+  const destParam = urlParams.get('dest');
+  const downloadParam = urlParams.get('download');
+  
+  if (startParam && destParam && downloadParam === 'true') {
+    if (coordinates[startParam] && coordinates[destParam]) {
+      // Set the dropdown values
+      startSelect.value = startParam;
+      destSelect.value = destParam;
+      
+      // Show the path
+      showPath();
+    }
+  }
+});
+</script>
+</body>
+</html>

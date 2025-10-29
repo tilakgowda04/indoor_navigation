@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EFS Indoor Navigation</title>
+<style>
+body { 
+  font-family: Arial, sans-serif; 
+  background: #e6f0ff; 
+  margin: 0; 
+  padding: 0; 
+  min-height: 100vh;
+}
+
+header { 
+  background: #0044cc; 
+  color: white; 
+  padding: 20px; 
+  text-align: center; 
+}
+
+.main-container { 
+  display: flex; 
+  gap: 20px; 
+  padding: 20px; 
+  max-width: 1600px; 
+  margin: 0 auto; 
+  min-height: calc(100vh - 120px);
+}
+
+.left-panel { 
+  width: 350px; 
+  background: white; 
+  padding: 20px; 
+  border-radius: 10px; 
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+  height: fit-content;
+  flex-shrink: 0;
+}
+
+.map-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 600px;
+}
+
+#map { 
+  position: relative; 
+  width: 100%;
+  max-width: 1200px;
+  aspect-ratio: 3/2; /* Maintain aspect ratio */
+  background: url('images/floorplan.jpg') no-repeat center; 
+  background-size: 100% 100%; /* Scale to fill container */
+  border: 3px solid #0044cc; 
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.marker { 
+  position: absolute; 
+  width: 14px;
+  height: 14px;
+  border-radius: 50%; 
+  background: #0044cc; 
+  color: white; 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  font-size: 8px;
+  cursor: pointer; 
+  z-index: 10;
+  transform: translate(-50%, -50%); /* Center the marker */
+}
+
+.path-svg { 
+  position: absolute; 
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  height: 100%; 
+  pointer-events: none; 
+}
+
+.curved-path { 
+  fill: none; 
+  stroke: #ff4444; 
+  stroke-width: 4px;
+  stroke-linecap: round; 
+  stroke-dasharray: 15px, 10px;
+  animation: pathFlow 2s linear infinite; 
+}
+
+.path-arrow {
+  fill: #ff4444;
+  stroke: #ff4444;
+  stroke-width: 1px;
+}
+
+@keyframes pathFlow { 
+  0% { stroke-dashoffset: 25px; } 
+  100% { stroke-dashoffset: 0px; } 
+}
+
+.start-marker { 
+  background: #00cc44 !important; 
+  width: 24px !important;
+  height: 24px !important;
+  border: 2px solid white !important;
+  font-size: 16px !important;
+  color: white;
+}
+
+.end-marker { 
+  background: #ff4444 !important; 
+  width: 24px !important;
+  height: 24px !important;
+  border: 2px solid white !important;
+  font-size: 16px !important;
+  color: white;
+}
+
+#controls { 
+  margin-bottom: 20px; 
+}
+
+#controls h3 { 
+  color: #0044cc; 
+  margin-bottom: 15px; 
+  border-bottom: 2px solid #e6f0ff; 
+  padding-bottom: 8px; 
+}
+
+select, button { 
+  width: 100%; 
+  padding: 10px; 
+  font-size: 14px; 
+  margin: 8px 0; 
+  border-radius: 6px; 
+  border: 2px solid #0044cc; 
+  box-sizing: border-box; 
+}
+
+button { 
+  background: #0044cc; 
+  color: white; 
+  cursor: pointer; 
+  font-weight: bold; 
+}
+
+button:hover { 
+  background: #002b80; 
+}
+
+button.clear-btn { 
+  background: #dc3545; 
+  border-color: #dc3545; 
+}
+
+button.clear-btn:hover { 
+  background: #c82333; 
+}
+
+/* Responsive adjustments */
+@media (max-width: 1400px) {
+  .main-container {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .left-panel {
+    width: 100%;
+    max-width: 500px;
+  }
+  
+  #map {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .marker {
+    font-size: 10px;
+    width: 16px;
+    height: 16px;
+  }
+  
+  .start-marker {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 18px !important;
+  }
+  
+  .end-marker {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 18px !important;
+  }
+}
+</style>
+</head>
+<body>  
+ 
+<header> 
+  <h2>EFS-First Floor Indoor Navigation</h2>
+  <p>Select Start and Destination to get the shortest route</p>
+</header>
+ 
+<div class="main-container">   
+  <div class="left-panel">
+    <div id="controls">
+      <h3>Navigation Controls</h3>
+      <label for="startSelect"><strong>Start Location:</strong></label>
+      <select id="startSelect"></select>
+      
+      <label for="destSelect"><strong>Destination:</strong></label>
+      <select id="destSelect"></select>
+      
+      <button onclick="showPath()">Show Route</button>
+      <button class="clear-btn" onclick="clearPath()">Clear Path</button>
+    </div>
+  </div>
+ 
+  <div class="map-container">
+    <div id="map">
+      <svg class="path-svg" id="pathSvg"></svg>
+    </div>
+  </div>
+</div>
+
+<script>
+// Room coordinates (as percentages of map dimensions)
+const coordinates = {
+  "Sitting Area": [63.33, 53.75], // 760/1200, 430/800
+  "COE Dept": [55.83, 35.00],
+  "Cabin1": [57.50, 78.75],
+  "Cabin2": [55.42, 78.75],
+  "Cabin3": [60.00, 31.25],
+  "Cabin4": [43.33, 12.50],
+  "Cabin5": [43.33, 7.50],
+  "Sanjay Cabin6": [25.83, 21.88],
+  "Shyam's Cabin7": [25.83, 17.50],
+  "Ameen's Cabin8": [25.83, 12.50],
+  "Cabin9": [58.33, 68.75],
+  "Meeting Room1": [31.67, 88.75],
+  "Meeting Room2": [38.33, 88.75],
+  "Meeting Room3": [63.75, 81.25],
+  "Meeting Room4": [53.50, 37.50],
+  "Internal Meeting Room1": [40.42, 34.38],
+  "External Meeting Room2": [35.42, 35.00],
+  "FM PRO": [54.33, 81.25],
+  "IWAA": [49.75, 81.25],
+  "HR1": [20.83, 66.25],
+  "HR2": [8.33, 66.25],
+  "HR Department": [20.83, 86.25],
+  "Common Cabin": [5.83, 83.75],
+  "Printer": [34.17, 82.50],
+  "Electricity Room": [57.50, 62.50],
+  "Women's Restroom": [53.33, 65.00],
+  "Men's Restroom": [48.33, 46.25],
+  "Ablution3": [60.00, 55.00],
+  "Janitor": [56.67, 56.25],
+  "Regional Procurement Department": [33.75, 25.00],
+  "Innovation": [37.50, 35.00],
+  "Fit Out Store": [45.83, 37.50],
+  "GD2": [22.08, 36.25],
+  "Electricity Room2": [16.67, 25.00],
+  "HVAC Training Area": [58.42, 18.38],
+  "Electrical Training Area1": [55.00, 17.13],
+  "Electrical Training Area2": [55.00, 10.00],
+  "Plumbing Training Area1": [51.67, 17.50],
+  "Plumbing Training Area2": [51.67, 22.50],
+  "Dressing Area": [43.08, 33.25],
+  "Fridge-1": [49.83, 28.75],
+  "Fridge-2": [46.00, 23.00],
+  "Fridge-3": [44.17, 22.88],
+  "Fridge-4": [42.08, 22.88],
+  "Rack-1": [42.00, 26.88],
+  "Rack-2": [44.00, 26.88],
+  "Rack-3": [46.25, 26.88],
+  "Rack-4": [46.17, 29.50],
+  "Rack-5": [42.08, 29.38],
+  "W1": [14.17, 15.63],
+  "W2": [12.50, 40.00]
+};
+
+// Corridor graph (coordinates as percentages)
+const navGraph = {
+  n1: {x: 31.67, y: 85.00, connections: ['n2','n40']},
+  n2: {x: 29.00, y: 85.00, connections: ['n1','n3','n39','n23']},
+  n3: {x: 28.92, y: 75.00, connections: ['n2','n4','n36']},
+  n4: {x: 27.92, y: 62.50, connections: ['n3','n5']},
+  n5: {x: 27.92, y: 52.50, connections: ['n4','n6','n8']},
+  n6: {x: 28.75, y: 43.13, connections: ['n5','n7','n17']},
+  n7: {x: 21.67, y: 41.25, connections: ['n6','n39','n42']},
+  n8: {x: 28.33, y: 52.88, connections: ['n5','n9']},
+  n9: {x: 42.17, y: 53.00, connections: ['n8','n10','n37']},
+  n10: {x: 42.00, y: 42.50, connections: ['n9','n11']},
+  n11: {x: 45.83, y: 42.50, connections: ['n10','n12','n29','n15']},
+  n12: {x: 48.75, y: 42.50, connections: ['n11','n13']},
+  n13: {x: 48.75, y: 27.50, connections: ['n12','n14']},
+  n14: {x: 48.67, y: 22.50, connections: ['n13']},
+  n15: {x: 52.92, y: 42.50, connections: ['n11','n16']},
+  n16: {x: 56.67, y: 42.50, connections: ['n15','n28','n29']},
+  n17: {x: 29.17, y: 31.25, connections: ['n6','n18','n33','n34']},
+  n18: {x: 29.17, y: 27.50, connections: ['n17','n19']},
+  n19: {x: 29.25, y: 22.50, connections: ['n18','n20']},
+  n20: {x: 29.58, y: 18.75, connections: ['n19','n21']},
+  n21: {x: 30.00, y: 13.75, connections: ['n20','n43']},
+  n22: {x: 42.08, y: 83.75, connections: ['n37','n40','n25']},
+  n23: {x: 12.50, y: 85.00, connections: ['n2']},
+  n24: {x: 50.00, y: 82.50, connections: ['n25','n41']},
+  n25: {x: 45.83, y: 82.50, connections: ['n24','n22']},
+  n26: {x: 56.25, y: 21.88, connections: ['n27']},
+  n27: {x: 56.25, y: 27.50, connections: ['n26','n28']},
+  n28: {x: 56.50, y: 32.50, connections: ['n27','n16','n29']},
+  n29: {x: 57.08, y: 42.50, connections: ['n28','n11','n30','n16']},
+  n30: {x: 62.92, y: 42.50, connections: ['n29','n31']},
+  n31: {x: 63.50, y: 52.50, connections: ['n30']},
+  n32: {x: 40.83, y: 31.25, connections: ['n33']},
+  n33: {x: 35.83, y: 31.50, connections: ['n32','n17']},
+  n34: {x: 31.67, y: 31.25, connections: ['n17']},
+  n35: {x: 13.33, y: 75.00, connections: ['n36']},
+  n36: {x: 25.00, y: 75.00, connections: ['n35','n3']},
+  n37: {x: 41.83, y: 71.25, connections: ['n38','n22','n9']},
+  n38: {x: 55.25, y: 71.25, connections: ['n37']},
+  n39: {x: 21.25, y: 85.00, connections: ['n2']},
+  n40: {x: 39.17, y: 85.00, connections: ['n1','n22']},
+  n41: {x: 57.50, y: 82.50, connections: ['n24']},
+  n42: {x: 22.08, y: 25.00, connections: ['n7']},
+  n43: {x: 39.17, y: 10.00, connections: ['n21']}
+};
+
+// Distance calculation using percentages
+function dist(a, b) { 
+  return Math.hypot(navGraph[a].x - navGraph[b].x, navGraph[a].y - navGraph[b].y); 
+}
+
+// A* algorithm
+function aStar(start, goal) {
+  let open = [start], came = {}, g = {}, f = {};
+  Object.keys(navGraph).forEach(n => { g[n] = Infinity; f[n] = Infinity; });
+  g[start] = 0; f[start] = dist(start, goal);
+  
+  while (open.length > 0) {
+    let current = open.reduce((a, b) => f[a] < f[b] ? a : b);
+    if (current === goal) {
+      let path = [current];
+      while (current in came) {
+        current = came[current];
+        path.unshift(current);
+      }
+      return path;
+    }
+    open = open.filter(n => n !== current);
+    for (let neighbor of navGraph[current].connections) {
+      let tg = g[current] + dist(current, neighbor);
+      if (tg < g[neighbor]) {
+        came[neighbor] = current;
+        g[neighbor] = tg;
+        f[neighbor] = tg + dist(neighbor, goal);
+        if (!open.includes(neighbor)) open.push(neighbor);
+      }
+    }
+  }
+  return [];
+}
+
+const mapDiv = document.getElementById("map");
+const pathSvg = document.getElementById("pathSvg");
+
+// Get map dimensions for pixel conversion
+function getMapDimensions() {
+  const mapRect = mapDiv.getBoundingClientRect();
+  return {
+    width: mapRect.width,
+    height: mapRect.height
+  };
+}
+
+// Convert percentage to pixels
+function percentToPixels(percentX, percentY) {
+  const mapDims = getMapDimensions();
+  return {
+    x: (percentX / 100) * mapDims.width,
+    y: (percentY / 100) * mapDims.height
+  };
+}
+
+// Create room markers with percentage positioning
+function createMarkers() {
+  // Clear existing markers
+  document.querySelectorAll('.marker:not(.start-marker):not(.end-marker)').forEach(m => m.remove());
+  
+  Object.keys(coordinates).forEach(loc => {
+    const [x, y] = coordinates[loc];
+    const marker = document.createElement("div");
+    marker.className = "marker";
+    marker.style.left = x + "%";
+    marker.style.top = y + "%";
+    marker.textContent = loc.substring(0, 2).toUpperCase();
+    marker.title = loc;
+    mapDiv.appendChild(marker);
+  });
+}
+
+// Initialize markers
+createMarkers();
+
+// Dropdowns
+const startSelect = document.getElementById("startSelect");
+const destSelect = document.getElementById("destSelect");
+
+// Allowed start locations (only meeting rooms)
+const allowedStarts = [
+  "Meeting Room1",
+  "Meeting Room2",
+  "Meeting Room3",
+  "Meeting Room4",
+  "External Meeting Room2",
+  "Internal Meeting Room1"
+];
+
+// Populate Start dropdown (only allowed rooms)
+allowedStarts.forEach(loc => {
+  let option = document.createElement("option");
+  option.value = loc;
+  option.text = loc;
+  startSelect.appendChild(option);
+});
+
+// Populate Destination dropdown (all rooms)
+Object.keys(coordinates).forEach(loc => {
+  let option = document.createElement("option");
+  option.value = loc;
+  option.text = loc;    
+  destSelect.appendChild(option);
+});
+
+// Nearest node
+function nearestNode([x, y]) {
+  let nearest = null, minDist = Infinity;
+  Object.keys(navGraph).forEach(nodeId => {
+    let d = Math.hypot(navGraph[nodeId].x - x, navGraph[nodeId].y - y);
+    if (d < minDist) { minDist = d; nearest = nodeId; }
+  });
+  return nearest;
+}
+
+// Show path with correct direction and arrows
+function showPath() {
+  clearPath();
+  const start = startSelect.value, dest = destSelect.value;
+  if (!start || !dest || start === dest) {
+    alert("Please select different start and destination locations.");
+    return;
+  }
+  
+  const startNode = nearestNode(coordinates[start]);
+  const destNode = nearestNode(coordinates[dest]);
+  const corridorPath = aStar(startNode, destNode);
+  
+  if (corridorPath.length === 0) {
+    alert("No path found between these locations.");
+    return;
+  }
+  
+  // Build path from start to destination
+  let fullPath = [
+    { x: coordinates[start][0], y: coordinates[start][1] },
+    ...corridorPath.map(n => ({ x: navGraph[n].x, y: navGraph[n].y })),
+    { x: coordinates[dest][0], y: coordinates[dest][1] }
+  ];
+  
+  const mapDims = getMapDimensions();
+  
+  // Draw path lines and arrows
+  for (let i = 0; i < fullPath.length - 1; i++) {
+    // Convert percentages to pixels for SVG
+    const startPx = percentToPixels(fullPath[i].x, fullPath[i].y);
+    const endPx = percentToPixels(fullPath[i + 1].x, fullPath[i + 1].y);
+    
+    // Draw line segment
+    let line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", startPx.x);
+    line.setAttribute("y1", startPx.y);
+    line.setAttribute("x2", endPx.x);
+    line.setAttribute("y2", endPx.y);
+    line.setAttribute("class", "curved-path");
+    pathSvg.appendChild(line);
+    
+    // Add arrow at midpoint of each segment
+    const midPx = {
+      x: (startPx.x + endPx.x) / 2,
+      y: (startPx.y + endPx.y) / 2
+    };
+    
+    // Calculate angle for arrow direction (from current point to next point)
+    const angle = Math.atan2(endPx.y - startPx.y, endPx.x - startPx.x) * 180 / Math.PI;
+    
+    // Create arrow triangle
+    let arrow = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    arrow.setAttribute("points", "0,0 -12,-6 -12,6");
+    arrow.setAttribute("class", "path-arrow");
+    arrow.setAttribute("transform", `translate(${midPx.x}, ${midPx.y}) rotate(${angle})`);
+    pathSvg.appendChild(arrow);
+  }
+  
+  // Add start marker with walking man emoji
+  let sm = document.createElement("div");
+  sm.className = "marker start-marker";
+  sm.style.left = coordinates[start][0] + "%";
+  sm.style.top = coordinates[start][1] + "%";
+  sm.innerHTML = "🚶‍♂️";
+  sm.title = "Start: " + start;
+  mapDiv.appendChild(sm);
+  
+  // Add end marker with target emoji
+  let em = document.createElement("div");
+  em.className = "marker end-marker";
+  em.style.left = coordinates[dest][0] + "%";
+  em.style.top = coordinates[dest][1] + "%";
+  em.innerHTML = "🎯";
+  em.title = "Destination: " + dest;
+  mapDiv.appendChild(em);
+}
+
+// Clear path
+function clearPath() {
+  // Clear SVG elements
+  pathSvg.innerHTML = '';
+  // Clear start and end markers
+  document.querySelectorAll(".start-marker, .end-marker").forEach(e => e.remove());
+}
+
+// Handle window resize to maintain marker positions
+window.addEventListener('resize', () => {
+  createMarkers();
+  // If there's a current path, redraw it
+  if (document.querySelector('.start-marker')) {
+    showPath();
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EFS Indoor Navigation</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #e6f0ff;
+  margin: 0;
+  padding: 0;
+}
+header {
+  background: #0044cc;
+  color: white;
+  padding: 20px;
+  text-align: center;
+}
+.main-container {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+/* Left Control Panel */
+.left-panel {
+  width: 350px;
+  background: white;
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  height: fit-content;
+}
+.left-panel h3 {
+  margin-top: 0;
+  color: #0044cc;
+  font-size: 22px;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 10px;
+}
+.left-panel label {
+  display: block;
+  margin-top: 15px;
+  margin-bottom: 6px;
+  font-weight: bold;
+  color: #111;
+  font-size: 18px;
+}
+.left-panel select {
+  width: 100%;
+  padding: 14px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #111;
+  border: 2px solid #0044cc;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  outline: none;
+  cursor: pointer;
+}
+.left-panel select option {
+  font-size: 18px;
+  font-weight: bold;
+  color: #111;
+}
+.left-panel button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 10px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.left-panel button:first-of-type {
+  background: #0044cc;
+  color: white;
+}
+.left-panel button:first-of-type:hover {
+  background: #003399;
+}
+.left-panel button:last-of-type {
+  background: #e53935;
+  color: white;
+}
+.left-panel button:last-of-type:hover {
+  background: #c62828;
+}
+
+/* Map */
+#map {
+  position: relative;
+  width: 1200px;
+  height: 800px;
+  background: url('Second Floor.jpg') no-repeat center;
+  background-size: contain;
+  border: 3px solid #0044cc;
+  border-radius: 10px;  
+  flex: 1;
+}
+
+/* ✅ Marker with label */
+.marker-wrapper {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+.marker {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid white;
+  z-index: 10;
+}
+.marker-label {
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;   /* keep text white */
+  font-size: 12px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Corridor graph - hidden */
+.graph-node, .node-label, .corridor-line {
+  display: none;
+}
+
+.path-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* 3D-looking moving path */
+.red-path {
+  fill: none;
+  stroke: url(#grad1);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.6));
+  stroke-dasharray: 15 20;
+  animation: moveDash 1s linear infinite;
+}
+@keyframes moveDash {
+  to { stroke-dashoffset: -35; }
+}
+
+/* QR Code Section */
+#qrSection {
+  display: none; 
+  margin-top: 20px; 
+  text-align: center; 
+  padding: 15px; 
+  background: #f8f9fa; 
+  border-radius: 8px; 
+  border: 2px solid #28a745;
+}
+#qrSection h4 {
+  color: #28a745; 
+  margin: 0 0 10px 0;
+}
+#qrSection p {
+  font-size: 12px; 
+  color: #666; 
+  margin: 5px 0;
+}
+#qrcode {
+  display: flex; 
+  justify-content: center; 
+  margin: 10px 0;
+}
+</style>
+</head>
+<body>
+<header>
+  <h2>EFS-Second Floor Indoor Navigation</h2>
+  <p>Indoor pathfinding visualization</p>
+</header>
+
+<div class="main-container">
+  <!-- Left Navigation Panel -->
+  <div class="left-panel">
+    <h3>Navigation Controls</h3>
+    <label for="startSelect">Start Location:</label>
+    <select id="startSelect"></select>
+    
+    <label for="destSelect">Destination:</label>
+    <select id="destSelect"></select>
+    
+    <button onclick="showPath()">Show Route</button>
+    <button onclick="clearPath()">Clear Path</button>
+    
+    <div id="qrSection">
+      <h4>📱 Scan QR Code</h4>
+      <p>Scan to share this route</p>
+      <div id="qrcode"></div>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div id="map">
+    <svg class="path-svg" id="pathSvg">
+      <defs>
+        <!-- Gradient for 3D depth -->
+        <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#ff9999;stop-opacity:1" />
+          <stop offset="50%" style="stop-color:#ff0000;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#990000;stop-opacity:1" />
+        </linearGradient>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+// === Locations ===
+const coordinates = {
+  "Printer1": [750, 110],
+  "Left Stair": [370, 345],
+  "Lift": [590, 475],
+  "Right Stair": [840, 400],
+  "Service lift": [730, 500],
+  "Resilience": [335, 440],
+  "Men's Restroom": [750, 390],
+  "Women's Restroom": [808, 560],
+  "Prudence": [450, 470],
+  "Quality Assurance": [319, 270],
+  "Printer2": [320, 620],
+  "Printer3": [550, 310],
+  "Integrity": [500, 170]
+};
+
+// 🎨 Marker colors
+const markerColors = {
+  "Printer1": "#e91e63",
+  "Left Stair": "#3f51b5",
+  "Lift": "#009688",
+  "Right Stair": "#ff9800",
+  "Service lift": "#9c27b0",
+  "Resilience": "#4caf50",
+  "Men's Restroom": "#f44336",
+  "Women's Restroom": "#673ab7",
+  "Prudence": "#2196f3",
+  "Quality Assurance": "#795548",
+  "Printer2": "#607d8b",
+  "Printer3": "#00bcd4",
+  "Integrity": "#8bc34a"
+};
+
+const mapDiv = document.getElementById("map");
+const pathSvg = document.getElementById("pathSvg");
+
+// ✅ Draw markers with custom colors + matching labels
+Object.keys(coordinates).forEach(loc => {
+  const [x, y] = coordinates[loc];
+  
+  const wrapper = document.createElement("div");
+  wrapper.className = "marker-wrapper";
+  wrapper.style.left = x + "px";
+  wrapper.style.top = y + "px";
+  
+  const label = document.createElement("div");
+  label.className = "marker-label";
+  label.textContent = loc;
+  label.style.background = markerColors[loc] || "#0044cc"; // ✅ label background
+  
+  const marker = document.createElement("div");
+  marker.className = "marker";
+  marker.style.background = markerColors[loc] || "#0044cc"; // ✅ marker color
+  
+  wrapper.appendChild(label);
+  wrapper.appendChild(marker);
+  mapDiv.appendChild(wrapper);
+});
+
+// === Dropdowns ===
+const startSelect = document.getElementById("startSelect");
+const destSelect = document.getElementById("destSelect");
+
+// Start dropdown → only specific
+["Integrity", "Prudence", "Quality Assurance", "Resilience"].forEach(loc => {
+  let option = document.createElement("option");
+  option.value = loc;
+  option.text = loc;
+  startSelect.appendChild(option);
+});
+
+// Destination dropdown → all
+Object.keys(coordinates).forEach(loc => {
+  let option = document.createElement("option");
+  option.value = loc;
+  option.text = loc;
+  destSelect.appendChild(option);
+});
+
+// === Distance helper ===
+function dist(a, b) { 
+  return Math.hypot(a[0] - b[0], a[1] - b[1]); 
+}
+
+// === A* Pathfinding ===
+const graph = {
+  N1: { coords: [340, 250], connections: ["N2"] },
+  N2: { coords: [380, 270], connections: ["N1", "N3"] },
+  N3: { coords: [430, 290], connections: ["N2", "N4"] },
+  N4: { coords: [430, 350], connections: ["N3", "N21"] },
+  N5: { coords: [590, 437], connections: ["N6", "N8"] },
+  N6: { coords: [685, 437], connections: ["N5", "N7", "N20"] },
+  N7: { coords: [685, 350], connections: ["N6", "N12"] },
+  N8: { coords: [520, 437], connections: ["N5", "N21", "N22", "N23"] },
+  N9: { coords: [525, 310], connections: ["N10", "N22"] },
+  N10: { coords: [525, 180], connections: ["N9"] },
+  N11: { coords: [840, 350], connections: ["N12"] },
+  N12: { coords: [755, 350], connections: ["N11", "N13", "N7"] },
+  N13: { coords: [755, 250], connections: ["N12"] },
+  N14: { coords: [370, 625], connections: ["N15", "N16"] },
+  N15: { coords: [370, 440], connections: ["N14", "N17", "N23"] },
+  N16: { coords: [425, 625], connections: ["N17", "N14"] },
+  N17: { coords: [425, 475], connections: ["N16", "N23", "N15"] },
+  N18: { coords: [670, 585], connections: ["N19", "N20"] },
+  N19: { coords: [810, 585], connections: ["N18"] },
+  N20: { coords: [690, 500], connections: ["N6", "N18"] },
+  N21: { coords: [520, 350], connections: ["N8", "N4", "N22"] },
+  N22: { coords: [520, 350], connections: ["N8", "N21", "N9"] },
+  N23: { coords: [425, 440], connections: ["N17", "N8", "N15"] }
+};
+
+let currentRouteData = null;
+
+function findPath(startName, destName) {
+  function nearestNode(coord) {
+    let minNode = null, minDist = Infinity;
+    Object.keys(graph).forEach(n => {
+      const d = dist(coord, graph[n].coords);
+      if (d < minDist) { minDist = d; minNode = n; }
+    });
+    return minNode;
+  }
+  const startNode = nearestNode(coordinates[startName]);
+  const destNode = nearestNode(coordinates[destName]);
+  let open = [startNode], cameFrom = {}, gScore = { [startNode]: 0 },
+      fScore = { [startNode]: dist(graph[startNode].coords, graph[destNode].coords) };
+
+  while (open.length) {
+    open.sort((a, b) => fScore[a] - fScore[b]);
+    let current = open.shift();
+    if (current === destNode) {
+      let path = [current];
+      while (current in cameFrom) { current = cameFrom[current]; path.unshift(current); }
+      return path;
+    }
+    graph[current].connections.forEach(nb => {
+      const tentative = gScore[current] + dist(graph[current].coords, graph[nb].coords);
+      if (!(nb in gScore) || tentative < gScore[nb]) {
+        cameFrom[nb] = current;
+        gScore[nb] = tentative;
+        fScore[nb] = tentative + dist(graph[nb].coords, graph[destNode].coords);
+        if (!open.includes(nb)) open.push(nb);
+      }
+    });
+  }
+  return [];
+}
+
+// === Show Path ===
+function showPath() {
+  clearPath();
+  const start = startSelect.value, dest = destSelect.value;
+  if (!start || !dest) { 
+    alert("Select start and destination!"); 
+    return; 
+  }
+  if (start === dest) {
+    alert("Please select different start and destination locations.");
+    return;
+  }
+  const path = findPath(start, dest);
+  if (path.length < 2) { 
+    alert("No path found"); 
+    return; 
+  }
+
+  // Store route data for QR code
+  currentRouteData = {
+    start: start,
+    destination: dest
+  };
+
+  const points = [coordinates[start], ...path.map(n => graph[n].coords), coordinates[dest]];
+  const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  poly.setAttribute("points", points.map(p => p.join(",")).join(" "));
+  poly.setAttribute("class", "red-path");
+  pathSvg.appendChild(poly);
+
+  // Generate QR code
+  generateQRCode();
+}
+
+// === Clear Path ===
+function clearPath() { 
+  pathSvg.innerHTML = `<defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff9999;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#ff0000;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#990000;stop-opacity:1" />
+    </linearGradient>
+  </defs>`;
+  document.getElementById('qrSection').style.display = 'none';
+  currentRouteData = null;
+}
+
+// === QR Code Generation ===
+function generateQRCode() {
+  const qrSection = document.getElementById('qrSection');
+  const qrDiv = document.getElementById('qrcode');
+  
+  qrDiv.innerHTML = '<div style="text-align: center; padding: 10px;">Generating QR Code...</div>';
+  
+  try {
+    const baseUrl = window.location.href.split('#')[0].split('?')[0];
+    const shareUrl = `${baseUrl}?start=${encodeURIComponent(currentRouteData.start)}&dest=${encodeURIComponent(currentRouteData.destination)}`;
+    
+    qrDiv.innerHTML = '';
+    
+    if (typeof qrcode !== 'undefined') {
+      try {
+        const qr = qrcode(4, 'M');
+        qr.addData(shareUrl);
+        qr.make();
+        
+        const qrImage = document.createElement('div');
+        qrImage.innerHTML = qr.createImgTag(4, 4);
+        qrDiv.appendChild(qrImage);
+        
+        addUrlDisplay(qrDiv, shareUrl);
+        qrSection.style.display = 'block';
+        return;
+      } catch (error) {
+        console.warn('Local QR generation failed:', error);
+      }
+    }
+    
+    const onlineQRDiv = document.createElement('div');
+    onlineQRDiv.style.textAlign = 'center';
+    
+    const qrImg = document.createElement('img');
+    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&format=png&data=${encodeURIComponent(shareUrl)}`;
+    qrImg.alt = 'QR Code';
+    qrImg.style.cssText = 'max-width: 150px; border: 2px solid #ddd; border-radius: 8px;';
+    
+    qrImg.onload = () => {
+      console.log('Online QR code loaded successfully');
+    };
+    
+    qrImg.onerror = () => {
+      qrImg.style.display = 'none';
+      const fallbackDiv = document.createElement('div');
+      fallbackDiv.style.cssText = 'border: 2px dashed #ccc; padding: 15px; border-radius: 8px; background: #f8f9fa;';
+      fallbackDiv.innerHTML = `
+        <p style="margin: 0 0 10px 0; color: #666; font-weight: bold;">📱 Manual Link</p>
+        <p style="margin: 0 0 10px 0; font-size: 12px; color: #666;">Copy and share this link:</p>
+      `;
+      onlineQRDiv.appendChild(fallbackDiv);
+      addUrlDisplay(fallbackDiv, shareUrl);
+    };
+    
+    onlineQRDiv.appendChild(qrImg);
+    qrDiv.appendChild(onlineQRDiv);
+    
+    addUrlDisplay(qrDiv, shareUrl);
+    qrSection.style.display = 'block';
+    
+  } catch (error) {
+    console.error('Error generating QR code:', error);
+    qrDiv.innerHTML = `
+      <div style="border: 2px dashed #ccc; padding: 15px; border-radius: 8px; background: #f8f9fa; text-align: center;">
+        <p style="margin: 0 0 10px 0; color: #666; font-weight: bold;">📱 Direct Link</p>
+        <p style="margin: 0 0 10px 0; font-size: 12px; color: #666;">Share this link for direct access:</p>
+      </div>
+    `;
+    addUrlDisplay(qrDiv.firstElementChild, shareUrl || '#');
+    qrSection.style.display = 'block';
+  }
+}
+
+function addUrlDisplay(container, url) {
+  const urlDiv = document.createElement('div');
+  urlDiv.style.cssText = 'margin-top: 10px; font-size: 10px; word-break: break-all; color: #666; padding: 8px; background: #fff; border: 1px solid #e0e0e0; border-radius: 4px;';
+  urlDiv.innerHTML = `
+    <div style="margin-bottom: 5px;"><strong>Share Link:</strong></div>
+    <a href="${url}" style="color: #0044cc; text-decoration: none;" onclick="copyToClipboard('${url}')">${url}</a>
+    <div style="margin-top: 5px; font-size: 9px; color: #999;">Click link to copy</div>
+  `;
+  container.appendChild(urlDiv);
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Link copied to clipboard!');
+    }).catch(() => {
+      fallbackCopyToClipboard(text);
+    });
+  } else {
+    fallbackCopyToClipboard(text);
+  }
+}
+
+function fallbackCopyToClipboard(text) {
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  try {
+    document.execCommand('copy');
+    alert('Link copied to clipboard!');
+  } catch (err) {
+    alert('Unable to copy. Please copy the link manually.');
+  }
+  document.body.removeChild(textArea);
+}
+
+// === Handle URL Parameters ===
+window.addEventListener('load', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const startParam = urlParams.get('start');
+  const destParam = urlParams.get('dest');
+  
+  if (startParam && destParam && coordinates[startParam] && coordinates[destParam]) {
+    startSelect.value = startParam;
+    destSelect.value = destParam;
+    showPath();
+  }
+});
+</script>
+</body>
+</html>

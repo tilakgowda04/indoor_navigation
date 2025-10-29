@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EFS Indoor Navigation</title>
+<style>
+body { 
+  font-family: Arial, sans-serif; 
+  background: #e6f0ff; 
+  margin: 0; 
+  padding: 0; 
+  min-height: 100vh;
+}
+
+header { 
+  background: #0044cc; 
+  color: white; 
+  padding: 20px; 
+  text-align: center; 
+}
+
+.main-container { 
+  display: flex; 
+  gap: 20px; 
+  padding: 20px; 
+  max-width: 1600px; 
+  margin: 0 auto; 
+  min-height: calc(100vh - 120px);
+}
+
+.left-panel { 
+  width: 350px; 
+  background: white; 
+  padding: 20px; 
+  border-radius: 10px; 
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+  height: fit-content;
+  flex-shrink: 0;
+}
+
+.map-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 600px;
+}
+
+#map { 
+  position: relative; 
+  width: 100%;
+  max-width: 1200px;
+  aspect-ratio: 3/2;
+  background: url('images/floorplan.jpg') no-repeat center; 
+  background-size: 100% 100%;
+  border: 3px solid #0044cc; 
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.marker-wrapper {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+.marker {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid white;
+  z-index: 10;
+}
+.marker-label {
+  position: absolute;
+  top: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.start-marker {
+  background: #00cc44 !important;
+}
+.end-marker {
+  background: #ff4444 !important;
+}
+.start-label {
+  background: #00cc44 !important;
+}
+.end-label {
+  background: #ff4444 !important;
+}
+
+.node-marker {
+  display: none;
+}
+
+.node-label {
+  display: none;
+}
+
+.path-svg { 
+  position: absolute; 
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  height: 100%; 
+  pointer-events: none; 
+}
+
+.curved-path { 
+  fill: none; 
+  stroke: #FF0000;
+  stroke-width: 4px;
+  stroke-linecap: round; 
+  stroke-dasharray: 15px, 10px;
+  animation: pathFlow 2s linear infinite; 
+}
+
+.node-connection {
+  display: none;
+}
+
+.path-arrow {
+  fill: #FF0000;
+  stroke: #FF0000;
+  stroke-width: 1px;
+}
+
+.arrow-animated {
+  animation: arrowSlide 2s linear infinite;
+}
+
+@keyframes arrowSlide {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes pathFlow { 
+  0% { stroke-dashoffset: 25px; } 
+  100% { stroke-dashoffset: 0px; } 
+}
+
+#controls { 
+  margin-bottom: 20px; 
+}
+
+#controls h3 { 
+  color: #0044cc; 
+  margin-bottom: 15px; 
+  border-bottom: 2px solid #e6f0ff; 
+  padding-bottom: 8px; 
+}
+
+select, button { 
+  width: 100%; 
+  padding: 10px; 
+  font-size: 14px; 
+  margin: 8px 0; 
+  border-radius: 6px; 
+  border: 2px solid #0044cc; 
+  box-sizing: border-box; 
+}
+
+button { 
+  background: #0044cc; 
+  color: white; 
+  cursor: pointer; 
+  font-weight: bold; 
+}
+
+button:hover { 
+  background: #002b80; 
+}
+
+button.clear-btn { 
+  background: #dc3545; 
+  border-color: #dc3545; 
+}
+
+button.clear-btn:hover { 
+  background: #c82333; 
+}
+
+.qr-download-page {
+  display: none;
+  max-width: 600px;
+  margin: 50px auto;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  overflow: hidden;
+}
+
+.qr-download-header {
+  background: linear-gradient(135deg, #0044cc, #0066ff);
+  color: white;
+  padding: 30px;
+  text-align: center;
+}
+
+.qr-download-header h2 {
+  margin: 0 0 10px 0;
+  font-size: 24px;
+}
+
+.qr-download-header p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 16px;
+}
+
+.qr-download-content {
+  padding: 30px;
+}
+
+.route-info {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 25px;
+  border-left: 5px solid #0044cc;
+}
+
+.route-info h3 {
+  margin: 0 0 15px 0;
+  color: #0044cc;
+  font-size: 18px;
+}
+
+.route-details {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+.route-point {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 8px;
+  font-weight: bold;
+  border: 2px solid #e9ecef;
+}
+
+.route-point.start {
+  border-color: #00cc44;
+  color: #00cc44;
+}
+
+.route-point.destination {
+  border-color: #ff4444;
+  color: #ff4444;
+}
+
+.route-arrow {
+  font-size: 24px;
+  color: #6c757d;
+}
+
+.download-section {
+  text-align: center;
+}
+
+.download-btn {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+  border: none;
+  padding: 15px 30px;
+  font-size: 18px;
+  font-weight: bold;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+  min-width: 250px;
+}
+
+.download-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+  background: linear-gradient(135deg, #218838, #1e7e34);
+}
+
+.download-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.download-info {
+  margin-top: 20px;
+  padding: 15px;
+  background: #e3f2fd;
+  border-radius: 8px;
+  color: #1976d2;
+  font-size: 14px;
+}
+
+.back-to-nav {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.back-to-nav a {
+  color: #0044cc;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.back-to-nav a:hover {
+  text-decoration: underline;
+}
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  color: white;
+  font-size: 18px;
+}
+
+.loading-spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #0044cc;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 2s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+#qrSection {
+  display: none; 
+  margin-top: 20px; 
+  text-align: center; 
+  padding: 15px; 
+  background: #f8f9fa; 
+  border-radius: 8px; 
+  border: 2px solid #28a745;
+}
+
+#qrSection h4 {
+  color: #28a745; 
+  margin: 0 0 10px 0;
+}
+
+#qrSection p {
+  font-size: 12px; 
+  color: #666; 
+  margin: 5px 0;
+}
+
+#qrcode {
+  display: flex; 
+  justify-content: center; 
+  margin: 10px 0;
+}
+
+@media (max-width: 1400px) {
+  .main-container {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .left-panel {
+    width: 100%;
+    max-width: 500px;
+  }
+  
+  #map {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .marker {
+    width: 10px;
+    height: 10px;
+    border: 1px solid white;
+  }
+  .marker-label {
+    font-size: 10px;
+    padding: 1px 4px;
+  }
+  .qr-download-content {
+    padding: 20px;
+  }
+  .route-details {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .route-arrow {
+    transform: rotate(90deg);
+  }
+}
+</style>
+</head>
+<body>  
+
+<!-- QR Code Download Page -->
+<div id="qrDownloadPage" class="qr-download-page">
+  <div class="qr-download-header">
+    <h2>🧭 EFS Navigation Route</h2>
+    <p>Your personalized indoor navigation route is ready!</p>
+  </div>
+  <div class="qr-download-content">
+    <div class="route-info">
+      <h3>📍 Route Information</h3>
+      <div class="route-details">
+        <div class="route-point start">
+          <span>🚶‍♂️</span>
+          <span id="qrStartLocation">Start Location</span>
+        </div>
+        <div class="route-arrow">→</div>
+        <div class="route-point destination">
+          <span>🎯</span>
+          <span id="qrDestLocation">Destination</span>
+        </div>
+      </div>
+      <p style="margin: 15px 0 0 0; color: #6c757d; font-size: 14px;">
+        This animated GIF will show you the complete route with visual markers and directions.
+      </p>
+    </div>
+    
+    <div class="download-section">
+      <button id="qrDownloadBtn" class="download-btn" onclick="downloadGIFFromQR()">
+        🎬 Download Animated Route GIF
+      </button>
+      
+      <div class="download-info">
+        <strong>💡 What you'll get:</strong><br>
+        • Animated route visualization<br>
+        • Start and destination markers<br>
+        • Step-by-step directions<br>
+        • High-quality GIF file
+      </div>
+    </div>
+    
+    <div class="back-to-nav">
+      <a href="#" onclick="showMainNavigation()">← Back to Navigation System</a>
+    </div>
+  </div>
+</div>
+ 
+<!-- Main Navigation Interface -->
+<div id="mainNavigation">
+  <header> 
+    <h2>EFS-First Floor Indoor Navigation</h2>
+    <p>Select Start and Destination to get the shortest route</p>
+  </header>
+   
+  <div class="main-container">   
+    <div class="left-panel">
+      <div id="controls">
+        <h3>Navigation Controls</h3>
+        <label for="startSelect"><strong>Start Location:</strong></label>
+        <select id="startSelect"></select>
+        
+        <label for="destSelect"><strong>Destination:</strong></label>
+        <select id="destSelect"></select>
+        
+        <button onclick="showPath()">Show Route</button>
+        <button class="clear-btn" onclick="clearPath()">Clear Path</button>
+        
+        <div id="qrSection">
+          <h4>📱 Scan QR Code</h4>
+          <p>Scan to get direct download link</p>
+          <div id="qrcode"></div>
+          <button onclick="downloadGIF()" style="background: #28a745; border-color: #28a745; margin-top: 10px;">
+            🎬 Download Animated GIF
+          </button>
+        </div>
+      </div>
+    </div>
+   
+    <div class="map-container">
+      <div id="map">
+        <svg class="path-svg" id="pathSvg"></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading overlay -->
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+  <div class="loading-spinner"></div>
+  <div id="loadingText">Creating animated GIF...</div>
+  <div style="font-size: 14px; margin-top: 10px; opacity: 0.8;">Please wait while we process your navigation route</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+// Load GIF.js dynamically with error handling
+let gifLibLoaded = false;
+let qrLibLoaded = false;
+
+// Check if QR library loaded, if not load alternative
+function ensureQRLibrary() {
+  return new Promise((resolve) => {
+    if (typeof qrcode !== 'undefined') {
+      qrLibLoaded = true;
+      resolve();
+      return;
+    }
+    
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';
+    script.onload = () => {
+      qrLibLoaded = true;
+      resolve();
+    };
+    script.onerror = () => {
+      console.warn('QR library failed to load from CDN');
+      resolve();
+    };
+    document.head.appendChild(script);
+  });
+}
+let currentRouteData = null;
+
+function loadGifLibrary() {
+  return new Promise((resolve, reject) => {
+    if (typeof GIF !== 'undefined') {
+      gifLibLoaded = true;
+      resolve();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'script/gif.js';
+    script.onload = () => {
+      gifLibLoaded = true;
+      resolve();
+    };
+    script.onerror = () => {
+      console.error('Failed to load GIF.js library');
+      reject(new Error('GIF library failed to load'));
+    };
+    document.head.appendChild(script);
+  });
+}
+
+// Room coordinates (as percentages of map dimensions)
+const coordinates = {
+  "Men'Restroom": [48.40, 46.25],
+  "Lift": [35.33, 57.75],
+  "Innovation": [36.45, 34.25],
+  "Transformation": [31.67, 90.75],
+  "Diversity": [40.50, 35.50],
+  "Right Stair": [57.33, 48.25],
+  "Printer 2": [57.75, 26.25],   
+  "Printer1": [34.17, 82.50],
+  "Service lift": [47.50, 61.50],
+  "Women's Restroom": [53.33, 68.00],
+  "Left stair1": [15.08, 40.25]
+};
+
+// Marker colors for each location
+const markerColors = {
+  "Transformation": "#e91e63",
+  "Lift": "#009688",
+  "Innovation": "#3f51b5",
+  "Diversity": "#ff9800",
+  "Right Stair": "#9c27b0",
+  "Printer 2": "#607d8b",
+  "Printer1": "#00bcd4",
+  "Service lift": "#4caf50",
+  "Women's Restroom": "#673ab7",
+  "Men'Restroom": "#f44336",
+  "Left stair1": "#8bc34a"
+};
+
+// Corridor graph (coordinates as percentages)
+const navGraph = {
+  n1: {x: 31.67, y: 85.00, connections: ['n2','n40']},
+  n2: {x: 29.00, y: 85.00, connections: ['n1','n3','n39','n23']},
+  n3: {x: 28.92, y: 75.00, connections: ['n2','n4','n36']},
+  n4: {x: 27.92, y: 62.50, connections: ['n3','n5']},
+  n5: {x: 27.92, y: 52.50, connections: ['n4','n6','n8']},
+  n6: {x: 28.75, y: 43.13, connections: ['n5','n7','n17']},
+  n7: {x: 21.67, y: 41.25, connections: ['n6','n39']},
+  n8: {x: 28.33, y: 52.88, connections: ['n5','n42']},
+  n9: {x: 42.17, y: 53.00, connections: ['n10','n42','n43']},
+  n10: {x: 42.00, y: 42.50, connections: ['n9','n11']},
+  n11: {x: 45.83, y: 42.50, connections: ['n10','n12','n29','n15']},
+  n12: {x: 48.75, y: 42.50, connections: ['n11','n13']},
+  n13: {x: 48.75, y: 27.50, connections: ['n12','n14']},
+  n14: {x: 48.67, y: 22.50, connections: ['n13']},
+  n15: {x: 52.92, y: 42.50, connections: ['n11','n16']},
+  n16: {x: 56.67, y: 42.50, connections: ['n15','n28','n29']},
+  n17: {x: 29.17, y: 31.25, connections: ['n6','n18','n33','n34']},
+  n18: {x: 29.17, y: 27.50, connections: ['n17','n19']},
+  n19: {x: 29.25, y: 22.50, connections: ['n18','n20']},
+  n20: {x: 29.58, y: 18.75, connections: ['n19','n21']},
+  n21: {x: 30.00, y: 13.75, connections: ['n20']},
+  n22: {x: 42.08, y: 83.75, connections: ['n37','n40','n25']},
+  n23: {x: 12.50, y: 85.00, connections: ['n2']},
+  n24: {x: 50.00, y: 82.50, connections: ['n25','n41']},
+  n25: {x: 45.83, y: 82.50, connections: ['n24','n22']},
+  n26: {x: 56.25, y: 21.88, connections: ['n27']},
+  n27: {x: 56.25, y: 27.50, connections: ['n26','n28']},
+  n28: {x: 56.50, y: 32.50, connections: ['n27','n16','n29']},
+  n29: {x: 57.08, y: 42.50, connections: ['n28','n11','n30','n16']},
+  n30: {x: 62.92, y: 42.50, connections: ['n29','n31']},
+  n31: {x: 63.50, y: 52.50, connections: ['n30']},
+  n32: {x: 40.83, y: 31.25, connections: ['n33']},
+  n33: {x: 35.83, y: 31.50, connections: ['n32','n17']},
+  n34: {x: 31.67, y: 31.25, connections: ['n17']},
+  n35: {x: 13.33, y: 75.00, connections: ['n36']},
+  n36: {x: 25.00, y: 75.00, connections: ['n35','n3']},
+  n37: {x: 41.83, y: 71.25, connections: ['n38','n22','n43']},
+  n38: {x: 55.25, y: 71.25, connections: ['n37']},
+  n39: {x: 21.25, y: 85.00, connections: ['n2']},
+  n40: {x: 39.17, y: 85.00, connections: ['n1','n22']},
+  n41: {x: 57.50, y: 82.50, connections: ['n24']},
+  n42: {x: 35.08, y: 53.00, connections: ['n8','n9']},
+  n43: {x: 42.17, y: 62.00, connections: ['n9','n37']}
+};
+
+// Distance calculation using percentages
+function dist(a, b) { 
+  return Math.hypot(navGraph[a].x - navGraph[b].x, navGraph[a].y - navGraph[b].y); 
+}
+
+// A* algorithm
+function aStar(start, goal) {
+  let open = [start], came = {}, g = {}, f = {};
+  Object.keys(navGraph).forEach(n => { g[n] = Infinity; f[n] = Infinity; });
+  g[start] = 0; f[start] = dist(start, goal);
+  
+  while (open.length > 0) {
+    let current = open.reduce((a, b) => f[a] < f[b] ? a : b);
+    if (current === goal) {
+      let path = [current];
+      while (current in came) {
+        current = came[current];
+        path.unshift(current);
+      }
+      return path;
+    }
+    open = open.filter(n => n !== current);
+    for (let neighbor of navGraph[current].connections) {
+      let tg = g[current] + dist(current, neighbor);
+      if (tg < g[neighbor]) {
+        came[neighbor] = current;
+        g[neighbor] = tg;
+        f[neighbor] = tg + dist(neighbor, goal);
+        if (!open.includes(neighbor)) open.push(neighbor);
+      }
+    }
+  }
+  return [];
+}
+
+const mapDiv = document.getElementById("map");
+const pathSvg = document.getElementById("pathSvg");
+
+// Get map dimensions for pixel conversion
+function getMapDimensions() {
+  const mapRect = mapDiv.getBoundingClientRect();
+  return {
+    width: mapRect.width,
+    height: mapRect.height
+  };
+}
+
+// Convert percentage to pixels
+function percentToPixels(percentX, percentY) {
+  const mapDims = getMapDimensions();
+  return {
+    x: (percentX / 100) * mapDims.width,
+    y: (percentY / 100) * mapDims.height
+  };
+}
+
+// Create room markers with labels (only for selected start and destination)
+function createMarkers(start = null, dest = null) {
+  document.querySelectorAll('.marker-wrapper').forEach(m => m.remove());
+  
+  // Only create markers for start and destination if provided
+  if (start && coordinates[start]) {
+    const [x, y] = coordinates[start];
+    const wrapper = document.createElement("div");
+    wrapper.className = "marker-wrapper";
+    wrapper.style.left = x + "%";
+    wrapper.style.top = y + "%";
+    
+    const label = document.createElement("div");
+    label.className = "marker-label start-label";
+    label.textContent = `🚶‍♂️ ${start}`;
+    label.style.background = "#00cc44";
+    
+    const marker = document.createElement("div");
+    marker.className = "marker start-marker";
+    marker.style.background = "#00cc44";
+    
+    wrapper.appendChild(label);
+    wrapper.appendChild(marker);
+    mapDiv.appendChild(wrapper);
+  }
+  
+  if (dest && coordinates[dest]) {
+    const [x, y] = coordinates[dest];
+    const wrapper = document.createElement("div");
+    wrapper.className = "marker-wrapper";
+    wrapper.style.left = x + "%";
+    wrapper.style.top = y + "%";
+    
+    const label = document.createElement("div");
+    label.className = "marker-label end-label";
+    label.textContent = `🎯 ${dest}`;
+    label.style.background = "#ff4444";
+    
+    const marker = document.createElement("div");
+    marker.className = "marker end-marker";
+    marker.style.background = "#ff4444";
+    
+    wrapper.appendChild(label);
+    wrapper.appendChild(marker);
+    mapDiv.appendChild(wrapper);
+  }
+}
+
+// Draw lines between connected nodes (empty function to maintain structure)
+function drawNodeConnections() {
+}
+
+// Initialize markers (none shown initially)
+createMarkers();
+
+// Dropdowns
+const startSelect = document.getElementById("startSelect");
+const destSelect = document.getElementById("destSelect");
+
+const allowedStarts = [
+ 
+  "Transformation",
+  "Diversity",
+  "Lift",
+  "Innovation"
+];
+
+allowedStarts.forEach(loc => {
+  let option = document.createElement("option");
+  option.value = loc;
+  option.text = loc;
+  startSelect.appendChild(option);
+});
+
+Object.keys(coordinates).forEach(loc => {
+  let option = document.createElement("option");
+  option.value = loc;
+  option.text = loc;    
+  destSelect.appendChild(option);
+});
+
+// Nearest node
+function nearestNode([x, y]) {
+  let nearest = null, minDist = Infinity;
+  Object.keys(navGraph).forEach(nodeId => {
+    let d = Math.hypot(navGraph[nodeId].x - x, navGraph[nodeId].y - y);
+    if (d < minDist) { minDist = d; nearest = nodeId; }
+  });
+  return nearest;
+}
+
+// Show path with moving arrows
+function showPath() {
+  clearPath();
+  const start = startSelect.value, dest = destSelect.value;
+  if (!start || !dest || start === dest) {
+    alert("Please select different start and destination locations.");
+    return;
+  }
+  
+  const startNode = nearestNode(coordinates[start]);
+  const destNode = nearestNode(coordinates[dest]);
+  const corridorPath = aStar(startNode, destNode);
+  
+  if (corridorPath.length === 0) {
+    alert("No path found between these locations.");
+    return;
+  }
+  
+  currentRouteData = {
+    start: start,
+    destination: dest,
+    startNode: startNode,
+    destNode: destNode,
+    corridorPath: corridorPath
+  };
+  
+  let fullPath = [
+    { x: coordinates[start][0], y: coordinates[start][1] },
+    ...corridorPath.map(n => ({ x: navGraph[n].x, y: navGraph[n].y })),
+    { x: coordinates[dest][0], y: coordinates[dest][1] }
+  ];
+  
+  const mapDims = getMapDimensions();
+  
+  for (let i = 0; i < fullPath.length - 1; i++) {
+    const startPx = percentToPixels(fullPath[i].x, fullPath[i].y);
+    const endPx = percentToPixels(fullPath[i + 1].x, fullPath[i + 1].y);
+    
+    let line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", startPx.x);
+    line.setAttribute("y1", startPx.y);
+    line.setAttribute("x2", endPx.x);
+    line.setAttribute("y2", endPx.y);
+    line.setAttribute("class", "curved-path");
+    pathSvg.appendChild(line);
+    
+    const angle = Math.atan2(endPx.y - startPx.y, endPx.x - startPx.x) * 180 / Math.PI;
+    
+    let arrowGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    
+    let arrow = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    arrow.setAttribute("points", "0,0 -12,-6 -12,6");
+    arrow.setAttribute("class", "path-arrow");
+    
+    let animateMotion = document.createElementNS("http://www.w3.org/2000/svg", "animateMotion");
+    animateMotion.setAttribute("dur", "2s");
+    animateMotion.setAttribute("repeatCount", "indefinite");
+    animateMotion.setAttribute("begin", "0s");
+    animateMotion.setAttribute("path", `M ${startPx.x} ${startPx.y} L ${endPx.x} ${endPx.y}`);
+    animateMotion.setAttribute("rotate", "auto");
+    
+    let animate = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+    animate.setAttribute("attributeName", "opacity");
+    animate.setAttribute("values", "0;1;1;0");
+    animate.setAttribute("keyTimes", "0;0.1;0.9;1");
+    animate.setAttribute("dur", "2s");
+    animate.setAttribute("repeatCount", "indefinite");
+    animate.setAttribute("begin", "0s");
+    
+    arrow.appendChild(animateMotion);
+    arrow.appendChild(animate);
+    arrowGroup.appendChild(arrow);
+    pathSvg.appendChild(arrowGroup);
+  }
+  
+  // Create markers only for start and destination
+  createMarkers(start, dest);
+  
+  ensureQRLibrary().then(() => {
+    generateQRCode();
+  });
+}
+
+// Clear path
+function clearPath() {
+  pathSvg.innerHTML = '';
+  createMarkers(); // Clear all markers
+  document.getElementById('qrSection').style.display = 'none';
+  currentRouteData = null;
+}
+
+// Generate QR Code with route parameters
+async function generateQRCode() {
+  const qrSection = document.getElementById('qrSection');
+  const qrDiv = document.getElementById('qrcode');
+  
+  qrDiv.innerHTML = '<div style="text-align: center; padding: 10px;">Generating QR Code...</div>';
+  
+  try {
+    const baseUrl = window.location.href.split('#')[0].split('?')[0];
+    const downloadUrl = `${baseUrl}?start=${encodeURIComponent(currentRouteData.start)}&dest=${encodeURIComponent(currentRouteData.destination)}&download=true`;
+    
+    qrDiv.innerHTML = '';
+    
+    if (typeof qrcode !== 'undefined') {
+      try {
+        const qr = qrcode(4, 'M');
+        qr.addData(downloadUrl);
+        qr.make();
+        
+        const qrImage = document.createElement('div');
+        qrImage.innerHTML = qr.createImgTag(4, 4);
+        qrDiv.appendChild(qrImage);
+        
+        addUrlDisplay(qrDiv, downloadUrl);
+        qrSection.style.display = 'block';
+        return;
+      } catch (error) {
+        console.warn('Local QR generation failed:', error);
+      }
+    }
+    
+    const onlineQRDiv = document.createElement('div');
+    onlineQRDiv.style.textAlign = 'center';
+    
+    const qrImg = document.createElement('img');
+    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&format=png&data=${encodeURIComponent(downloadUrl)}`;
+    qrImg.alt = 'QR Code';
+    qrImg.style.cssText = 'max-width: 150px; border: 2px solid #ddd; border-radius: 8px;';
+    
+    qrImg.onload = () => {
+      console.log('Online QR code loaded successfully');
+    };
+    
+    qrImg.onerror = () => {
+      qrImg.style.display = 'none';
+      const fallbackDiv = document.createElement('div');
+      fallbackDiv.style.cssText = 'border: 2px dashed #ccc; padding: 15px; border-radius: 8px; background: #f8f9fa;';
+      fallbackDiv.innerHTML = `
+        <p style="margin: 0 0 10px 0; color: #666; font-weight: bold;">📱 Manual Link</p>
+        <p style="margin: 0 0 10px 0; font-size: 12px; color: #666;">Copy and share this link:</p>
+      `;
+      onlineQRDiv.appendChild(fallbackDiv);
+      addUrlDisplay(fallbackDiv, downloadUrl);
+    };
+    
+    onlineQRDiv.appendChild(qrImg);
+    qrDiv.appendChild(onlineQRDiv);
+    
+    addUrlDisplay(qrDiv, downloadUrl);
+    qrSection.style.display = 'block';
+    
+  } catch (error) {
+    console.error('Error generating QR code:', error);
+    qrDiv.innerHTML = `
+      <div style="border: 2px dashed #ccc; padding: 15px; border-radius: 8px; background: #f8f9fa; text-align: center;">
+        <p style="margin: 0 0 10px 0; color: #666; font-weight: bold;">📱 Direct Link</p>
+        <p style="margin: 0 0 10px 0; font-size: 12px; color: #666;">Share this link for direct download:</p>
+      </div>
+    `;
+    addUrlDisplay(qrDiv.firstElementChild, downloadUrl || '#');
+    qrSection.style.display = 'block';
+  }
+}
+
+function addUrlDisplay(container, url) {
+  const urlDiv = document.createElement('div');
+  urlDiv.style.cssText = 'margin-top: 10px; font-size: 10px; word-break: break-all; color: #666; padding: 8px; background: #fff; border: 1px solid #e0e0e0; border-radius: 4px;';
+  urlDiv.innerHTML = `
+    <div style="margin-bottom: 5px;"><strong>Share Link:</strong></div>
+    <a href="${url}" style="color: #0044cc; text-decoration: none;" onclick="copyToClipboard('${url}')">${url}</a>
+    <div style="margin-top: 5px; font-size: 9px; color: #999;">Click link to copy</div>
+  `;
+  container.appendChild(urlDiv);
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Link copied to clipboard!');
+    }).catch(() => {
+      fallbackCopyToClipboard(text);
+    });
+  } else {
+    fallbackCopyToClipboard(text);
+  }
+}
+
+function fallbackCopyToClipboard(text) {
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  try {
+    document.execCommand('copy');
+    alert('Link copied to clipboard!');
+  } catch (err) {
+    alert('Unable to copy. Please copy the link manually.');
+  }
+  document.body.removeChild(textArea);
+}
+
+function showQRDownloadPage(startLoc, destLoc) {
+  document.getElementById('mainNavigation').style.display = 'none';
+  document.getElementById('qrDownloadPage').style.display = 'block';
+  document.getElementById('qrStartLocation').textContent = startLoc;
+  document.getElementById('qrDestLocation').textContent = destLoc;
+  
+  currentRouteData = {
+    start: startLoc,
+    destination: destLoc,
+    startNode: nearestNode(coordinates[startLoc]),
+    destNode: nearestNode(coordinates[destLoc]),
+    corridorPath: aStar(nearestNode(coordinates[startLoc]), nearestNode(coordinates[destLoc]))
+  };
+}
+
+function showMainNavigation() {
+  document.getElementById('qrDownloadPage').style.display = 'none';
+  document.getElementById('mainNavigation').style.display = 'block';
+}
+
+function downloadGIFFromQR() {
+  if (!currentRouteData) {
+    alert('No route data available. Please try again.');
+    return;
+  }
+  downloadGIF();
+}
+
+function showLoading(text = 'Creating animated GIF...') {
+  document.getElementById('loadingText').textContent = text;
+  document.getElementById('loadingOverlay').style.display = 'flex';
+}
+
+function hideLoading() {
+  document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+async function downloadGIF() {
+  const button = document.getElementById('qrDownloadBtn') || event.target;
+  const originalText = button.innerHTML;
+  
+  try {
+    if (!currentRouteData) {
+      alert('Please generate a route first before downloading GIF.');
+      return;
+    }
+
+    button.innerHTML = '⏳ Preparing...';
+    button.disabled = true;
+    showLoading('Loading GIF library...');
+
+    if (!gifLibLoaded) {
+      try {
+        await loadGifLibrary();
+      } catch (error) {
+        hideLoading();
+        alert('Unable to load GIF creation library. Please check your internet connection and try again.');
+        button.innerHTML = originalText;
+        button.disabled = false;
+        return;
+      }
+    }
+
+    showLoading('Preparing GIF creation...');
+    const floorPlanImage = await loadFloorPlanImage();
+    showLoading('Creating animation frames...');
+    
+    const gif = new GIF({
+      workers: 2,
+      quality: 10,
+      width: 1200,
+      height: 800,
+      workerScript: 'script/gif.worker.js',
+      debug: false
+    });
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 1200;
+    canvas.height = 800;
+
+    let fullPath = [
+      { x: coordinates[currentRouteData.start][0], y: coordinates[currentRouteData.start][1] },
+      ...currentRouteData.corridorPath.map(n => ({ x: navGraph[n].x, y: navGraph[n].y })),
+      { x: coordinates[currentRouteData.destination][0], y: coordinates[currentRouteData.destination][1] }
+    ];
+
+    const pathData = [];
+    const arrowData = [];
+
+    // Calculate path segments and arrow data
+    for (let i = 0; i < fullPath.length - 1; i++) {
+      const startPx = {
+        x: (fullPath[i].x / 100) * canvas.width,
+        y: (fullPath[i].y / 100) * canvas.height
+      };
+      const endPx = {
+        x: (fullPath[i + 1].x / 100) * canvas.width,
+        y: (fullPath[i + 1].y / 100) * canvas.height
+      };
+      
+      pathData.push({
+        x1: startPx.x,
+        y1: startPx.y,
+        x2: endPx.x,
+        y2: endPx.y
+      });
+
+      const angle = Math.atan2(endPx.y - startPx.y, endPx.x - startPx.x);
+      const segmentLength = Math.hypot(endPx.x - startPx.x, endPx.y - startPx.y);
+      
+      // Create multiple arrows per segment for continuous animation
+      for (let j = 0; j < 3; j++) { // Three arrows for smoother animation
+        arrowData.push({
+          segmentIndex: i,
+          startX: startPx.x,
+          startY: startPx.y,
+          endX: endPx.x,
+          endY: endPx.y,
+          angle: angle,
+          delay: j * 0.33, // Staggered delays for continuous flow
+          segmentLength: segmentLength
+        });
+      }
+    }
+
+    const totalFrames = 60; // Increased frames for smoother arrow animation
+    
+    for (let frame = 0; frame < totalFrames; frame++) {
+      showLoading(`Creating frame ${frame + 1} of ${totalFrames}...`);
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(floorPlanImage, 0, 0, canvas.width, canvas.height);
+      
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.fillStyle = '#0044cc';
+      ctx.font = 'bold 28px Arial';
+      ctx.textAlign = 'center';
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 4;
+      ctx.strokeText('EFS Indoor Navigation', canvas.width / 2, 50);
+      ctx.fillText('EFS Indoor Navigation', canvas.width / 2, 50);
+      
+      ctx.font = 'bold 18px Arial';
+      ctx.fillStyle = '#495057';
+      ctx.strokeText(`Route: ${currentRouteData.start} → ${currentRouteData.destination}`, canvas.width / 2, 80);
+      ctx.fillText(`Route: ${currentRouteData.start} → ${currentRouteData.destination}`, canvas.width / 2, 80);
+      
+      // Draw only start marker
+      if (currentRouteData.start && coordinates[currentRouteData.start]) {
+        const [x, y] = coordinates[currentRouteData.start];
+        const pixelX = (x / 100) * canvas.width;
+        const pixelY = (y / 100) * canvas.height;
+        
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        const text = `🚶‍♂️ ${currentRouteData.start}`;
+        const textWidth = ctx.measureText(text).width;
+        const padding = 6;
+        const boxWidth = textWidth + padding * 2;
+        const boxHeight = 16;
+        const labelY = pixelY - 14 - 2;
+        
+        ctx.beginPath();
+        ctx.roundRect(pixelX - boxWidth / 2, labelY - boxHeight, boxWidth, boxHeight, 12);
+        ctx.fillStyle = '#00cc44';
+        ctx.fill();
+        
+        ctx.fillStyle = 'white';
+        ctx.fillText(text, pixelX, labelY);
+        
+        ctx.beginPath();
+        ctx.arc(pixelX, pixelY, 7, 0, 2 * Math.PI);
+        ctx.fillStyle = '#00cc44';
+        ctx.fill();
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      
+      // Draw only destination marker
+      if (currentRouteData.destination && coordinates[currentRouteData.destination]) {
+        const [x, y] = coordinates[currentRouteData.destination];
+        const pixelX = (x / 100) * canvas.width;
+        const pixelY = (y / 100) * canvas.height;
+        
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        const text = `🎯 ${currentRouteData.destination}`;
+        const textWidth = ctx.measureText(text).width;
+        const padding = 6;
+        const boxWidth = textWidth + padding * 2;
+        const boxHeight = 16;
+        const labelY = pixelY - 14 - 2;
+        
+        ctx.beginPath();
+        ctx.roundRect(pixelX - boxWidth / 2, labelY - boxHeight, boxWidth, boxHeight, 12);
+        ctx.fillStyle = '#ff4444';
+        ctx.fill();
+        
+        ctx.fillStyle = 'white';
+        ctx.fillText(text, pixelX, labelY);
+        
+        ctx.beginPath();
+        ctx.arc(pixelX, pixelY, 7, 0, 2 * Math.PI);
+        ctx.fillStyle = '#ff4444';
+        ctx.fill();
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      
+      const progress = frame / (totalFrames - 1);
+      
+      ctx.strokeStyle = '#FF0000';
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      
+      const dashOffset = -progress * 40;
+      ctx.setLineDash([25, 15]);
+      ctx.lineDashOffset = dashOffset;
+      
+      pathData.forEach(path => {
+        ctx.beginPath();
+        ctx.moveTo(path.x1, path.y1);
+        ctx.lineTo(path.x2, path.y2);
+        ctx.stroke();
+      });
+      
+      ctx.fillStyle = '#FF0000';
+      ctx.setLineDash([]);
+      
+      // Draw moving arrows
+      arrowData.forEach(arrow => {
+        const animTime = ((progress + arrow.delay) % 1);
+        const arrowX = arrow.startX + (arrow.endX - arrow.startX) * animTime;
+        const arrowY = arrow.startY + (arrow.endY - arrow.startY) * animTime;
+        
+        // Fade in/out effect
+        let opacity = 1;
+        if (animTime < 0.1) {
+          opacity = animTime / 0.1;
+        } else if (animTime > 0.9) {
+          opacity = (1 - animTime) / 0.1;
+        }
+        
+        ctx.save();
+        ctx.globalAlpha = opacity;
+        ctx.translate(arrowX, arrowY);
+        ctx.rotate(arrow.angle);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-15, -8);
+        ctx.lineTo(-15, 8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      });
+      
+      ctx.globalAlpha = 1;
+      
+      const startX = (coordinates[currentRouteData.start][0] / 100) * canvas.width;
+      const startY = (coordinates[currentRouteData.start][1] / 100) * canvas.height;
+      
+      const glowRadius = 25 + 10 * Math.sin(progress * Math.PI * 6);
+      ctx.beginPath();
+      ctx.arc(startX, startY, glowRadius, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(0, 204, 68, 0.3)';
+      ctx.fill();
+      
+      const endX = (coordinates[currentRouteData.destination][0] / 100) * canvas.width;
+      const endY = (coordinates[currentRouteData.destination][1] / 100) * canvas.height;
+      
+      const endGlowRadius = 25 + 10 * Math.cos(progress * Math.PI * 6);
+      ctx.beginPath();
+      ctx.arc(endX, endY, endGlowRadius, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(255, 68, 68, 0.3)';
+      ctx.fill();
+      
+      gif.addFrame(canvas, { delay: 100 }); // Reduced delay for smoother animation
+    }
+    
+    showLoading('Rendering GIF file...');
+    
+    gif.on('finished', function(blob) {
+      hideLoading();
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const start = currentRouteData.start.replace(/\s+/g, '_');
+      const dest = currentRouteData.destination.replace(/\s+/g, '_');
+      a.href = url;
+      a.download = `EFS_Navigation_${start}_to_${dest}.gif`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      button.innerHTML = '✅ Downloaded!';
+      setTimeout(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+      }, 3000);
+    });
+    
+    gif.on('progress', function(p) {
+      showLoading(`Rendering GIF: ${Math.round(p * 100)}%`);
+    });
+
+    gif.on('error', function(error) {
+      console.error('GIF creation error:', error);
+      hideLoading();
+      alert('Error creating GIF. Please try again.');
+      button.innerHTML = originalText;
+      button.disabled = false;
+    });
+    
+    gif.render();
+    
+  } catch (error) {
+    console.error('Error creating GIF:', error);
+    hideLoading();
+    alert('Error creating GIF. Please try again.');
+    button.innerHTML = originalText;
+    button.disabled = false;
+  }
+}
+
+function loadFloorPlanImage() {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => {
+      console.warn('Could not load floor plan image, using fallback');
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 1200;
+      canvas.height = 800;
+      
+      ctx.fillStyle = '#f8f9fa';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.strokeStyle = '#e9ecef';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < canvas.width; i += 50) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, canvas.height);
+        ctx.stroke();
+      }
+      for (let i = 0; i < canvas.height; i += 50) {
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(canvas.width, i);
+        ctx.stroke();
+      }
+      
+      ctx.strokeStyle = '#6c757d';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+      
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(20, canvas.height / 3);
+      ctx.lineTo(canvas.width - 20, canvas.height / 3);
+      ctx.moveTo(20, 2 * canvas.height / 3);
+      ctx.lineTo(canvas.width - 20, 2 * canvas.height / 3);
+      ctx.moveTo(canvas.width / 3, 20);
+      ctx.lineTo(canvas.width / 3, canvas.height - 20);
+      ctx.moveTo(2 * canvas.width / 3, 20);
+      ctx.lineTo(2 * canvas.width / 3, canvas.height - 20);
+      ctx.stroke();
+      
+      const fallbackImg = new Image();
+      fallbackImg.onload = () => resolve(fallbackImg);
+      fallbackImg.src = canvas.toDataURL();
+    };
+    img.src = 'images/floorplan.jpg';
+  });
+}
+
+window.addEventListener('load', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const startParam = urlParams.get('start');
+  const destParam = urlParams.get('dest');
+  const downloadParam = urlParams.get('download');
+  
+  if (startParam && destParam && downloadParam === 'true') {
+    if (coordinates[startParam] && coordinates[destParam]) {
+      showQRDownloadPage(startParam, destParam);
+    } else {
+      alert('Invalid route parameters. Redirecting to main navigation.');
+      showMainNavigation();
+    }
+  }
+});
+
+window.addEventListener('resize', () => {
+  createMarkers(currentRouteData?.start, currentRouteData?.destination);
+  if (document.querySelector('.start-marker')) {
+    showPath();
+  }
+});
+</script>
+</body>
+</html>
